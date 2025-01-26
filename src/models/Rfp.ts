@@ -1,6 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn } from "typeorm";
 import { RfpCategory } from "./RfpCategory";
 import { User } from "./User";
+import { Contract } from "./Contract";
+import { Bid } from "./Bid";
 
 export enum RfpStatus {
     DRAFT = "DRAFT",
@@ -66,4 +68,24 @@ export class Rfp {
 
     @UpdateDateColumn()
     updatedAt!: Date;
+
+    @OneToMany(() => Bid, bid => bid.rfp)
+    bids!: Bid[];
+
+    @ManyToOne(() => Contract, { nullable: true })
+    @JoinColumn({ name: "awardedContractId" })
+    awardedContract?: Contract;
+
+    @Column({ nullable: true })
+    awardedContractId?: string;
+
+    @ManyToOne(() => User, { nullable: true })
+    @JoinColumn({ name: "awardedVendorId" })
+    awardedVendor?: User;
+
+    @Column({ nullable: true })
+    awardedVendorId?: string;
+
+    @Column({ type: "timestamp", nullable: true })
+    awardedDate?: Date;
 } 

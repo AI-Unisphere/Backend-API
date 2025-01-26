@@ -20,24 +20,45 @@
    - This GPO becomes the primary administrator
 
 ### GPO Journey
+
 1. **Account Creation & Access**
    - Initial GPO created during system setup
    - Additional GPOs can be created by existing GPOs
    - Login using email/password
 
 2. **RFP Management Flow**
-   - Create RFP categories for organization
-   - Create new RFP with detailed requirements
-   - Review and edit RFP in draft status
-   - Publish RFP when ready for vendor submissions
+   a. **RFP Creation**
+      - Create RFP categories for organization
+      - Create new RFP with detailed requirements
+      - RFP starts in DRAFT status with null issue date
+      - Set submission deadline with specific time (e.g., 5 PM UTC)
+      - Define project timeline with start/end dates
+   
+   b. **RFP Review & Publication**
+      - Review and edit RFP in draft status
+      - Publish RFP when ready
+      - System automatically sets issue date to current time
+      - Publication triggers visibility to vendors
+
+   c. **Timeline Management**
+      - Monitor RFP deadlines
+      - View countdown to submission deadline
+      - Track project timeline dates
 
 3. **Bid Management Flow**
-   - View all submitted bids for each RFP
-   - Access bid details after submission deadline
-   - Download and review proposal documents
-   - Track vendor participation and submission status
+   a. **Before Deadline**
+      - View all submitted bids
+      - See vendor business information
+      - Cannot access bid details or evaluations
+   
+   b. **After Deadline**
+      - Access full bid details
+      - View AI-generated evaluations
+      - Download proposal documents
+      - Compare bid scores and analyses
 
 ### Vendor Journey
+
 1. **Registration & Verification**
    - Register with business details
    - Submit business registration for verification
@@ -49,14 +70,38 @@
    - Browse available RFPs
    - Filter RFPs by category and status
    - View detailed RFP requirements
-   - Download RFP documents
+   - See clear submission deadlines with timezone
+   - Track time remaining until deadlines
 
 3. **Bid Submission Flow**
-   - Prepare proposal document (PDF)
-   - Use AI analysis for proposal improvement
-   - Save draft bids for later completion
-   - Submit final bid before deadline
-   - Track submitted bids and status
+   a. **Proposal Preparation**
+      - Prepare proposal document (PDF)
+      - Use AI analysis for proposal improvement
+      - Save drafts for later completion
+   
+   b. **Submission Process**
+      - Submit final bid before deadline
+      - System enforces deadline cutoff
+      - Receive confirmation with timestamp
+   
+   c. **Post-Submission**
+      - Track submitted bids
+      - View submission timestamps
+      - After deadline: access evaluation results
+
+### Public User Journey
+
+1. **RFP Browsing**
+   - View all published RFPs
+   - See submission deadlines in local timezone
+   - Filter by category and status
+   - Access detailed RFP information
+
+2. **Bid Transparency**
+   - View number of submitted bids per RFP
+   - Before deadline: see only vendor business names
+   - After deadline: access bid scores and short evaluations
+   - Cannot access detailed bid information or documents
 
 ### Expected Frontend Pages
 
@@ -64,59 +109,84 @@
 1. **Landing Page**
    - System overview
    - Registration/Login options
-   - Featured RFPs
+   - Featured RFPs with countdown timers
+   - Clear timezone indicators
 
-2. **Authentication Pages**
-   - Login form
-   - Registration form
-   - Password recovery
+2. **RFP Listing**
+   - Filterable RFP grid/list
+   - Deadline countdown for active RFPs
+   - Status indicators (Draft/Published/Closed)
+   - Timezone conversion helpers
+
+3. **RFP Detail View**
+   - Complete RFP information
+   - Timeline visualization
+   - Submission deadline countdown
+   - Bid statistics (after deadline)
 
 #### GPO Dashboard
 1. **Overview Dashboard**
    - Active RFPs summary
+   - Upcoming deadlines
    - Recent bid submissions
    - System statistics
 
 2. **RFP Management**
-   - RFP listing page with filters
-   - RFP creation form
-   - RFP detail view
-   - RFP edit page
-   - Category management
+   - RFP creation form with datetime pickers
+   - Timezone selection/display
+   - Draft RFP listing
+   - Publication controls
 
 3. **Bid Review**
    - Bid listing by RFP
-   - Bid detail view
-   - Proposal document viewer
-   - Vendor information view
-
-4. **Administration**
-   - GPO account management
-   - System settings
-   - User management
+   - Deadline status indicator
+   - Evaluation results (after deadline)
+   - Comparative bid analysis
 
 #### Vendor Dashboard
 1. **Overview Dashboard**
-   - Available RFPs
+   - Available RFPs with deadlines
    - Draft bids
    - Submitted bids status
-   - Verification status
+   - Deadline reminders
 
-2. **RFP Discovery**
-   - RFP search and filter
-   - RFP detail view
-   - Category-based browsing
+2. **Bid Management**
+   - Bid creation/upload form
+   - Submission countdown
+   - Draft save functionality
+   - AI analysis results
 
-3. **Bid Management**
-   - Bid creation form
-   - Draft bids listing
-   - Submission history
-   - AI analysis results view
+### Frontend Implementation Guidelines
 
-4. **Profile Management**
-   - Business profile
-   - Verification status
-   - Document management
+1. **Datetime Handling**
+   - Use consistent UTC storage
+   - Display times in user's local timezone
+   - Include timezone indicators
+   - Implement countdown timers
+
+2. **Form Components**
+   - Datetime pickers with timezone support
+   - Clear deadline input format
+   - Validation for future dates
+   - Time selection for deadlines
+
+3. **Display Components**
+   - Countdown timers for active RFPs
+   - Timezone conversion helpers
+   - Status badges with time context
+   - Timeline visualizations
+
+4. **User Experience**
+   - Clear deadline notifications
+   - Timezone awareness
+   - Automatic refresh near deadlines
+   - Graceful deadline cutoff
+
+5. **Error Handling**
+   - Clear datetime validation errors
+   - Timezone mismatch warnings
+   - Deadline approaching alerts
+   - Submission cutoff messages
 
 ### Common Features Across All Pages
 1. **Navigation**
@@ -375,12 +445,11 @@ All responses follow this general format:
     "title": "string (required)",
     "shortDescription": "string (required)",
     "timeline": {
-        "startDate": "ISO date string (required)",
-        "endDate": "ISO date string (required)"
+        "startDate": "ISO 8601 datetime (required, e.g., 2024-03-21T00:00:00Z)",
+        "endDate": "ISO 8601 datetime (required, e.g., 2024-06-21T23:59:59Z)"
     },
     "budget": "number (required)",
-    "issueDate": "ISO date string (required)",
-    "submissionDeadline": "ISO date string (required)",
+    "submissionDeadline": "ISO 8601 datetime (required, e.g., 2024-04-21T17:00:00Z)",
     "categoryId": "uuid (required)",
     "technicalRequirements": ["string"],
     "managementRequirements": ["string"],
@@ -405,20 +474,21 @@ All responses follow this general format:
         "title": "string",
         "shortDescription": "string",
         "longDescription": "string (AI-generated)",
-        "timelineStartDate": "ISO date string",
-        "timelineEndDate": "ISO date string",
+        "timelineStartDate": "ISO 8601 datetime",
+        "timelineEndDate": "ISO 8601 datetime",
         "budget": "number",
-        "issueDate": "ISO date string",
-        "submissionDeadline": "ISO date string",
+        "issueDate": null,
+        "submissionDeadline": "ISO 8601 datetime",
         "categoryId": "uuid",
         "status": "DRAFT",
         "isPublished": false,
-        "createdAt": "ISO date string"
+        "createdAt": "ISO 8601 datetime",
+        "updatedAt": "ISO 8601 datetime"
     }
 }
 ```
 - **Error Responses**:
-  - 400: "Invalid category" | "Invalid input data"
+  - 400: "Invalid submission deadline format" | "Submission deadline must be in the future" | "Invalid category"
   - 403: "Only GPOs can create RFPs"
 
 #### List RFPs
@@ -437,7 +507,10 @@ All responses follow this general format:
             "title": "string",
             "shortDescription": "string",
             "budget": "number",
-            "submissionDeadline": "ISO date string",
+            "issueDate": "ISO 8601 datetime | null",
+            "submissionDeadline": "ISO 8601 datetime",
+            "timelineStartDate": "ISO 8601 datetime",
+            "timelineEndDate": "ISO 8601 datetime",
             "status": "DRAFT | PUBLISHED | CLOSED",
             "category": {
                 "id": "uuid",
@@ -447,7 +520,9 @@ All responses follow this general format:
                 "id": "uuid",
                 "name": "string",
                 "email": "string"
-            }
+            },
+            "createdAt": "ISO 8601 datetime",
+            "updatedAt": "ISO 8601 datetime"
         }
     ],
     "pagination": {
@@ -469,12 +544,13 @@ All responses follow this general format:
         "title": "string",
         "shortDescription": "string",
         "longDescription": "string",
-        "timelineStartDate": "ISO date string",
-        "timelineEndDate": "ISO date string",
+        "timelineStartDate": "ISO 8601 datetime",
+        "timelineEndDate": "ISO 8601 datetime",
         "budget": "number",
-        "issueDate": "ISO date string",
-        "submissionDeadline": "ISO date string",
+        "issueDate": "ISO 8601 datetime | null",
+        "submissionDeadline": "ISO 8601 datetime",
         "status": "DRAFT | PUBLISHED | CLOSED",
+        "isPublished": "boolean",
         "category": {
             "id": "uuid",
             "name": "string"
@@ -483,7 +559,9 @@ All responses follow this general format:
             "id": "uuid",
             "name": "string",
             "email": "string"
-        }
+        },
+        "createdAt": "ISO 8601 datetime",
+        "updatedAt": "ISO 8601 datetime"
     }
 }
 ```
@@ -493,6 +571,7 @@ All responses follow this general format:
 #### Publish RFP
 - **PATCH** `/rfp/:id/publish`
 - **Auth Required**: Yes (GPO only)
+- **Description**: Publishes an RFP and automatically sets the issue date to the current time
 - **Success Response** (200):
 ```json
 {
@@ -501,14 +580,29 @@ All responses follow this general format:
         "id": "uuid",
         "title": "string",
         "status": "PUBLISHED",
-        "isPublished": true
+        "isPublished": true,
+        "issueDate": "ISO 8601 datetime"
     }
 }
 ```
 - **Error Responses**:
   - 400: "RFP is already published"
-  - 403: "Only the GPO who created this RFP can publish it"
+  - 403: "Only GPOs can publish RFPs" | "Only the GPO who created this RFP can publish it"
   - 404: "RFP not found"
+
+### Date Format Notes
+1. All datetime fields use ISO 8601 format (e.g., "2024-03-21T15:00:00Z")
+2. Timezone is always UTC (denoted by 'Z' suffix)
+3. Issue date:
+   - Null when RFP is created
+   - Automatically set to current time when RFP is published
+4. Submission deadline:
+   - Must include time component
+   - Must be in the future
+   - Example: "2024-04-21T17:00:00Z" (5 PM UTC)
+5. Timeline dates:
+   - Start date typically uses 00:00:00Z (start of day)
+   - End date typically uses 23:59:59Z (end of day)
 
 ### Bid Management
 
@@ -747,4 +841,314 @@ Common error status codes:
    - Implement loading states
    - Add form validation
    - Show success/error notifications
-   - Implement confirmation dialogs for important actions 
+   - Implement confirmation dialogs for important actions
+
+## Contract and Milestone Management
+
+### API Endpoints
+
+#### Contract Management
+
+1. **Award Contract to Bid**
+```http
+POST /api/contracts/rfp/:rfpId/bid/:bidId/award
+Authorization: Bearer <jwt_token>
+Role Required: GPO
+
+Request Body:
+{
+    "startDate": "2024-03-20T00:00:00.000Z",
+    "endDate": "2024-09-20T00:00:00.000Z"
+}
+
+Response (201 Created):
+{
+    "message": "Contract awarded successfully",
+    "data": {
+        "contract": {
+            "id": "9b4c6293-8720-4cb1-8726-cf5db95e7f2d",
+            "rfpId": "550e8400-e29b-41d4-a716-446655440000",
+            "bidId": "7a39e6b6-b77e-4a6c-8f79-8061c5c23cf1",
+            "vendorId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+            "status": "ACTIVE",
+            "startDate": "2024-03-20T00:00:00.000Z",
+            "endDate": "2024-09-20T00:00:00.000Z",
+            "awardDate": "2024-01-26T04:58:41.897Z",
+            "totalValue": 150000.00
+        },
+        "vendor": {
+            "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+            "name": "Tech Solutions Inc."
+        },
+        "rfp": {
+            "id": "550e8400-e29b-41d4-a716-446655440000",
+            "title": "Cloud Infrastructure Setup",
+            "status": "CLOSED"
+        }
+    }
+}
+```
+
+2. **Get Contract Details**
+```http
+GET /api/contracts/:id
+Public Access
+
+Response (200 OK):
+{
+    "data": {
+        "id": "9b4c6293-8720-4cb1-8726-cf5db95e7f2d",
+        "rfpId": "550e8400-e29b-41d4-a716-446655440000",
+        "bidId": "7a39e6b6-b77e-4a6c-8f79-8061c5c23cf1",
+        "vendorId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+        "status": "ACTIVE",
+        "startDate": "2024-03-20T00:00:00.000Z",
+        "endDate": "2024-09-20T00:00:00.000Z",
+        "rfp": {
+            "title": "Cloud Infrastructure Setup"
+        },
+        "vendor": {
+            "name": "Tech Solutions Inc."
+        },
+        "milestones": [...]
+    }
+}
+```
+
+3. **List All Contracts**
+```http
+GET /api/contracts?page=1&limit=10
+Public Access
+
+Response (200 OK):
+{
+    "data": [...],
+    "pagination": {
+        "currentPage": 1,
+        "totalPages": 5,
+        "totalItems": 48,
+        "itemsPerPage": 10
+    }
+}
+```
+
+4. **Get Vendor's Contracts**
+```http
+GET /api/contracts/vendor/contracts
+Authorization: Bearer <jwt_token>
+Role Required: VENDOR
+
+Response (200 OK):
+{
+    "data": [
+        {
+            "id": "9b4c6293-8720-4cb1-8726-cf5db95e7f2d",
+            "rfp": {
+                "title": "Cloud Infrastructure Setup"
+            },
+            "status": "ACTIVE",
+            "startDate": "2024-03-20T00:00:00.000Z",
+            "endDate": "2024-09-20T00:00:00.000Z",
+            "milestones": [...]
+        }
+    ]
+}
+```
+
+#### Milestone Management
+
+1. **Create Milestone**
+```http
+POST /api/contracts/:contractId/milestones
+Authorization: Bearer <jwt_token>
+Role Required: GPO
+
+Request Body:
+{
+    "title": "Initial Setup",
+    "description": "Set up basic cloud infrastructure",
+    "dueDate": "2024-04-20T00:00:00.000Z"
+}
+
+Response (201 Created):
+{
+    "message": "Milestone created successfully",
+    "data": {
+        "id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
+        "contractId": "9b4c6293-8720-4cb1-8726-cf5db95e7f2d",
+        "title": "Initial Setup",
+        "description": "Set up basic cloud infrastructure",
+        "dueDate": "2024-04-20T00:00:00.000Z",
+        "status": "NOT_STARTED"
+    }
+}
+```
+
+2. **List Contract Milestones**
+```http
+GET /api/contracts/:contractId/milestones
+Public Access
+
+Response (200 OK):
+{
+    "data": [
+        {
+            "id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
+            "title": "Initial Setup",
+            "description": "Set up basic cloud infrastructure",
+            "dueDate": "2024-04-20T00:00:00.000Z",
+            "status": "IN_PROGRESS",
+            "updates": [...]
+        }
+    ]
+}
+```
+
+3. **Add Milestone Update**
+```http
+POST /api/contracts/:contractId/milestones/:milestoneId/updates
+Authorization: Bearer <jwt_token>
+Role Required: VENDOR
+
+Request Body:
+{
+    "status": "IN_PROGRESS",
+    "details": "Completed server provisioning, starting configuration",
+    "media": ["https://storage.example.com/screenshots/config1.png"]
+}
+
+Response (201 Created):
+{
+    "message": "Milestone update added successfully",
+    "data": {
+        "id": "e8fd159b-57c4-4d36-9bd7-a59ca13057bb",
+        "status": "IN_PROGRESS",
+        "details": "Completed server provisioning, starting configuration",
+        "media": ["https://storage.example.com/screenshots/config1.png"],
+        "updatedById": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+        "createdAt": "2024-03-25T14:30:00.000Z"
+    }
+}
+```
+
+4. **Get Milestone Updates**
+```http
+GET /api/contracts/:contractId/milestones/:milestoneId/updates
+Public Access
+
+Response (200 OK):
+{
+    "data": [
+        {
+            "id": "e8fd159b-57c4-4d36-9bd7-a59ca13057bb",
+            "status": "IN_PROGRESS",
+            "details": "Completed server provisioning, starting configuration",
+            "media": ["https://storage.example.com/screenshots/config1.png"],
+            "updatedBy": {
+                "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+                "name": "Tech Solutions Inc."
+            },
+            "createdAt": "2024-03-25T14:30:00.000Z",
+            "updatedAt": "2024-03-25T14:30:00.000Z"
+        }
+    ]
+}
+```
+
+### User Journeys
+
+#### GPO (Government Procurement Officer)
+
+1. **Contract Award Process**
+   - Review RFP bids and evaluations
+   - Select winning bid
+   - Award contract by providing start and end dates
+   - System automatically:
+     - Creates contract
+     - Updates RFP status to CLOSED
+     - Records award details
+
+2. **Project Monitoring**
+   - Create milestones for awarded contracts
+   - View milestone updates from vendors
+   - Track project progress through milestone statuses
+   - Access all contract details and updates
+
+#### Vendor
+
+1. **Contract Award Notification**
+   - Submit bid for RFP
+   - Receive evaluation score
+   - Check RFP status for award decision
+   - If awarded:
+     - Access contract details
+     - View project milestones
+     - Start updating milestone progress
+
+2. **Project Management**
+   - View all awarded contracts in dashboard
+   - Access individual contract details
+   - Update milestone progress with:
+     - Status changes
+     - Detailed updates
+     - Supporting media/documents
+   - Track historical updates
+
+#### Public Users
+
+1. **Transparency Access**
+   - View all awarded contracts
+   - Access contract details including:
+     - RFP information
+     - Awarded vendor
+     - Contract value and timeline
+   - Track project progress through milestones
+   - View milestone updates and history
+
+### Frontend Implementation Guide
+
+#### Dashboard Views
+
+1. **GPO Dashboard**
+   - List of RFPs with status
+   - Awarded contracts section
+   - Milestone tracking overview
+   - Quick actions:
+     - Award contract
+     - Create milestone
+     - View updates
+
+2. **Vendor Dashboard**
+   - Active bids status
+   - Awarded contracts list
+   - Milestone progress tracking
+   - Quick actions:
+     - View contract details
+     - Update milestones
+     - Upload progress reports
+
+3. **Public Dashboard**
+   - Browse awarded contracts
+   - Search and filter options
+   - Project progress tracking
+   - Transparency metrics
+
+#### Key Features
+
+1. **Contract Award Interface**
+   - RFP selection
+   - Bid evaluation display
+   - Contract details form
+   - Award confirmation
+
+2. **Milestone Management**
+   - Timeline view
+   - Progress tracking
+   - Update submission form
+   - Media upload interface
+
+3. **Progress Tracking**
+   - Visual progress indicators
+   - Status updates timeline
+   - Document/media gallery
+   - Historical data view 

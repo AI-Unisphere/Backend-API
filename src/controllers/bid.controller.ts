@@ -8,6 +8,8 @@ import { UserRole } from "../types/enums";
 import fs from 'fs';
 import path from 'path';
 import { User } from "../models/User";
+import { bidEvaluationService } from "../services/bidEvaluation.service";
+import { Request } from "express";
 
 const bidRepository = AppDataSource.getRepository(Bid);
 const rfpRepository = AppDataSource.getRepository(Rfp);
@@ -87,7 +89,31 @@ export const analyzeBidProposal = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// Submit bid without analysis
+// Add this after submitBid function
+export const evaluateBid = async (bid: Bid): Promise<void> => {
+    try {
+        const rfp = await rfpRepository.findOne({ where: { id: bid.rfpId } });
+        if (!rfp) {
+            throw new Error("RFP not found");
+        }
+
+        const evaluation = await bidEvaluationService.evaluateBid(bid, rfp);
+
+        // Update bid with evaluation results
+        bid.evaluationScore = evaluation.score;
+        bid.shortEvaluation = evaluation.shortEvaluation;
+        bid.longEvaluation = evaluation.longEvaluation;
+        bid.evaluationDetails = evaluation.details;
+        bid.evaluationDate = new Date();
+
+        await bidRepository.save(bid);
+    } catch (error) {
+        console.error("Bid evaluation error:", error);
+        throw new Error("Failed to evaluate bid");
+    }
+};
+
+// Modify the submitBid function to include evaluation
 export const submitBid = async (req: AuthRequest, res: Response) => {
     try {
         if (!req.user || req.user.role !== UserRole.VENDOR) {
@@ -126,12 +152,15 @@ export const submitBid = async (req: AuthRequest, res: Response) => {
         const bid = bidRepository.create({
             rfpId,
             vendorId: req.user.id,
-            proposalDocument: proposalFile.filename, // Store filename instead of file content
+            proposalDocument: proposalFile.filename,
             status: BidStatus.SUBMITTED,
             submissionDate: new Date()
         });
 
         await bidRepository.save(bid);
+
+        // Perform evaluation immediately but don't expose results yet
+        await evaluateBid(bid);
 
         return res.status(201).json({
             message: "Bid submitted successfully",
@@ -139,7 +168,7 @@ export const submitBid = async (req: AuthRequest, res: Response) => {
                 id: bid.id,
                 status: bid.status,
                 submissionDate: bid.submissionDate,
-                documentUrl: `/api/bids/rfp/${rfpId}/bid/${bid.id}/document` // URL to download document
+                documentUrl: `/api/bids/rfp/${rfpId}/bid/${bid.id}/document`
             }
         });
     } catch (error: any) {
@@ -227,6 +256,10 @@ export const getBids = async (req: AuthRequest, res: Response) => {
             return res.status(404).json({ message: "RFP not found" });
         }
 
+        const now = new Date();
+        const deadline = new Date(rfp.submissionDeadline);
+        const showEvaluation = now > deadline;
+
         // Get total count for pagination
         const totalCount = await bidRepository
             .createQueryBuilder("bid")
@@ -247,11 +280,15 @@ export const getBids = async (req: AuthRequest, res: Response) => {
                 "vendor.id",
                 "vendor.name",
                 "vendor.businessName",
-                "vendor.businessEmail"
+                "vendor.businessEmail",
+                ...(showEvaluation ? [
+                    "bid.evaluationScore",
+                    "bid.shortEvaluation"
+                ] : [])
             ])
             .skip(skip)
             .take(limit)
-            .orderBy("bid.submissionDate", "DESC")
+            .orderBy(showEvaluation ? "bid.evaluationScore" : "bid.submissionDate", "DESC")
             .getMany();
 
         const totalPages = Math.ceil(totalCount / limit);
@@ -264,7 +301,7 @@ export const getBids = async (req: AuthRequest, res: Response) => {
                 totalItems: totalCount,
                 itemsPerPage: limit
             },
-            message: "Note: Bid documents will be available after the submission deadline"
+            evaluationVisible: showEvaluation
         });
     } catch (error) {
         console.error("Get bids error:", error);
@@ -289,11 +326,29 @@ export const getBidById = async (req: AuthRequest, res: Response) => {
             return res.status(404).json({ message: "Bid not found" });
         }
 
+        const now = new Date();
+        const deadline = new Date(bid.rfp.submissionDeadline);
+        const showEvaluation = now > deadline;
+
         // Handle vendor access
         if (req.user.role === UserRole.VENDOR) {
             if (bid.vendorId !== req.user.id) {
                 return res.status(403).json({ message: "Access denied" });
             }
+
+            // Show full evaluation details to the vendor after deadline
+            if (showEvaluation) {
+                return res.json({
+                    data: {
+                        ...bid,
+                        evaluationScore: bid.evaluationScore,
+                        shortEvaluation: bid.shortEvaluation,
+                        longEvaluation: bid.longEvaluation,
+                        evaluationDetails: bid.evaluationDetails
+                    }
+                });
+            }
+
             return res.json({ data: bid });
         }
 
@@ -303,23 +358,40 @@ export const getBidById = async (req: AuthRequest, res: Response) => {
                 return res.status(403).json({ message: "Access denied" });
             }
 
-            const now = new Date();
-            const deadline = new Date(bid.rfp.submissionDeadline);
-            
-            if (now < deadline) {
+            if (!showEvaluation) {
                 return res.status(403).json({ 
-                    message: "Detailed bid information can only be viewed after the submission deadline",
+                    message: "Bid evaluation can only be viewed after the submission deadline",
                     deadline: deadline
                 });
             }
 
             const { id, name, businessName, businessEmail } = bid.vendor;
             bid.vendor = { id, name, businessName, businessEmail } as any;
-            return res.json({ data: bid });
+            return res.json({ 
+                data: {
+                    ...bid,
+                    evaluationScore: bid.evaluationScore,
+                    shortEvaluation: bid.shortEvaluation,
+                    evaluationDetails: bid.evaluationDetails
+                }
+            });
         }
 
-        return res.status(403).json({ message: "Invalid role" });
+        // Public access (after deadline)
+        if (showEvaluation) {
+            return res.json({
+                data: {
+                    id: bid.id,
+                    submissionDate: bid.submissionDate,
+                    evaluationScore: bid.evaluationScore,
+                    shortEvaluation: bid.shortEvaluation
+                }
+            });
+        }
+
+        return res.status(403).json({ message: "Evaluation not available until after submission deadline" });
     } catch (error) {
+        console.error("Get bid error:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 };
@@ -370,6 +442,104 @@ export const downloadBidDocument = async (req: AuthRequest, res: Response) => {
         return res.download(filePath);
     } catch (error) {
         console.error("Document download error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+// Public endpoints for bids
+export const getPublicBids = async (req: Request, res: Response) => {
+    try {
+        const { rfpId } = req.params;
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const skip = (page - 1) * limit;
+
+        // Get RFP to check deadline
+        const rfp = await rfpRepository.findOne({ where: { id: rfpId } });
+        if (!rfp) {
+            return res.status(404).json({ message: "RFP not found" });
+        }
+
+        const now = new Date();
+        const deadline = new Date(rfp.submissionDeadline);
+        const showEvaluation = now > deadline;
+
+        // Get total count for pagination
+        const totalCount = await bidRepository
+            .createQueryBuilder("bid")
+            .where("bid.rfpId = :rfpId", { rfpId })
+            .andWhere("bid.status = :status", { status: BidStatus.SUBMITTED })
+            .getCount();
+
+        // Get paginated bids with limited information
+        const bids = await bidRepository
+            .createQueryBuilder("bid")
+            .leftJoinAndSelect("bid.vendor", "vendor")
+            .where("bid.rfpId = :rfpId", { rfpId })
+            .andWhere("bid.status = :status", { status: BidStatus.SUBMITTED })
+            .select([
+                "bid.id",
+                "bid.submissionDate",
+                "vendor.businessName",
+                ...(showEvaluation ? [
+                    "bid.evaluationScore",
+                    "bid.shortEvaluation"
+                ] : [])
+            ])
+            .skip(skip)
+            .take(limit)
+            .orderBy(showEvaluation ? "bid.evaluationScore" : "bid.submissionDate", "DESC")
+            .getMany();
+
+        const totalPages = Math.ceil(totalCount / limit);
+
+        return res.json({
+            data: bids,
+            pagination: {
+                currentPage: page,
+                totalPages,
+                totalItems: totalCount,
+                itemsPerPage: limit
+            },
+            evaluationVisible: showEvaluation
+        });
+    } catch (error) {
+        console.error("Get public bids error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+export const getPublicBidDetails = async (req: Request, res: Response) => {
+    try {
+        const { rfpId, id } = req.params;
+
+        const bid = await bidRepository.findOne({
+            where: { id, rfpId },
+            relations: ["vendor", "rfp"]
+        });
+
+        if (!bid) {
+            return res.status(404).json({ message: "Bid not found" });
+        }
+
+        const now = new Date();
+        const deadline = new Date(bid.rfp.submissionDeadline);
+        const showEvaluation = now > deadline;
+
+        // Return limited public information
+        return res.json({
+            data: {
+                id: bid.id,
+                submissionDate: bid.submissionDate,
+                businessName: bid.vendor.businessName,
+                ...(showEvaluation ? {
+                    evaluationScore: bid.evaluationScore,
+                    shortEvaluation: bid.shortEvaluation
+                } : {})
+            }
+        });
+    } catch (error) {
+        console.error("Get public bid details error:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 }; 

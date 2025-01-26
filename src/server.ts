@@ -7,6 +7,7 @@ import adminRoutes from "./routes/admin.routes";
 import verificationRoutes from "./routes/verification.routes";
 import rfpRoutes from "./routes/rfp.routes";
 import bidRoutes from "./routes/bid.routes";
+import contractRoutes from "./routes/contract.routes";
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/vendor/verification", verificationRoutes);
 app.use("/api/rfp", rfpRoutes);
 app.use("/api/bids", bidRoutes);
+app.use("/api/contracts", contractRoutes);
 
 // Health check endpoint
 app.get("/health", (_, res) => {

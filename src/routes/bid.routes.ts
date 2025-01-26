@@ -1,7 +1,16 @@
 import { Router } from "express";
 import multer from "multer";
 import path from "path";
-import { submitBid, saveDraft, getBids, getBidById, analyzeBidProposal, downloadBidDocument } from "../controllers/bid.controller";
+import { 
+    submitBid, 
+    saveDraft, 
+    getBids, 
+    getBidById, 
+    analyzeBidProposal, 
+    downloadBidDocument,
+    getPublicBids,
+    getPublicBidDetails
+} from "../controllers/bid.controller";
 import { authenticateToken, authorize } from "../middleware/auth";
 import { UserRole } from "../types/enums";
 
@@ -89,6 +98,10 @@ const handleUpload = (req: any, res: any, next: any) => {
         next();
     });
 };
+
+// Public bid routes (no authentication required)
+router.get("/rfp/:rfpId/public/bids", getPublicBids);
+router.get("/rfp/:rfpId/public/bids/:id", getPublicBidDetails);
 
 // Routes configuration
 // Analyze bid proposal without saving (Vendor only)

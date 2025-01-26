@@ -68,6 +68,21 @@ export const createRfp = async (req: AuthRequest, res: Response) => {
             specialInstructions
         } = req.body;
 
+        // Validate submission deadline
+        const deadlineDate = new Date(submissionDeadline);
+        if (isNaN(deadlineDate.getTime())) {
+            return res.status(400).json({ 
+                message: "Invalid submission deadline format. Use ISO 8601 format (e.g., 2024-03-21T15:00:00Z)" 
+            });
+        }
+
+        // Validate that deadline is in the future
+        if (deadlineDate <= new Date()) {
+            return res.status(400).json({ 
+                message: "Submission deadline must be in the future" 
+            });
+        }
+
         // Validate category
         const category = await categoryRepository.findOne({ where: { id: categoryId } });
         if (!category) {
@@ -95,7 +110,7 @@ export const createRfp = async (req: AuthRequest, res: Response) => {
             timelineEndDate: new Date(timeline.endDate),
             budget,
             issueDate: new Date(issueDate),
-            submissionDeadline: new Date(submissionDeadline),
+            submissionDeadline: deadlineDate,
             categoryId,
             createdById: req.user!.id,
             status: RfpStatus.DRAFT
@@ -105,7 +120,10 @@ export const createRfp = async (req: AuthRequest, res: Response) => {
 
         return res.status(201).json({
             message: "RFP created successfully",
-            data: rfp
+            data: {
+                ...rfp,
+                submissionDeadline: rfp.submissionDeadline.toISOString()
+            }
         });
     } catch (error) {
         console.error("RFP creation error:", error);
@@ -151,10 +169,21 @@ export const getRfps = async (req: Request, res: Response) => {
             .orderBy("rfp.createdAt", "DESC")
             .getMany();
 
+        // Format dates in ISO 8601
+        const formattedRfps = rfps.map(rfp => ({
+            ...rfp,
+            submissionDeadline: rfp.submissionDeadline.toISOString(),
+            timelineStartDate: rfp.timelineStartDate.toISOString(),
+            timelineEndDate: rfp.timelineEndDate.toISOString(),
+            issueDate: rfp.issueDate.toISOString(),
+            createdAt: rfp.createdAt.toISOString(),
+            updatedAt: rfp.updatedAt.toISOString()
+        }));
+
         const totalPages = Math.ceil(totalCount / limit);
 
         return res.json({
-            data: rfps,
+            data: formattedRfps,
             pagination: {
                 currentPage: page,
                 totalPages,
@@ -174,21 +203,44 @@ export const getRfpById = async (req: Request, res: Response) => {
 
         const rfp = await rfpRepository.findOne({
             where: { id },
-            relations: ["category", "createdBy"],
-            select: {
-                createdBy: {
-                    id: true,
-                    name: true,
-                    email: true
-                }
-            }
+            relations: [
+                "category", 
+                "createdBy", 
+                "awardedContract",
+                "awardedVendor",
+                "bids",
+                "bids.vendor"
+            ]
         });
 
         if (!rfp) {
             return res.status(404).json({ message: "RFP not found" });
         }
 
-        return res.json({ data: rfp });
+        // Format dates in ISO 8601
+        const formattedRfp = {
+            ...rfp,
+            submissionDeadline: rfp.submissionDeadline.toISOString(),
+            timelineStartDate: rfp.timelineStartDate.toISOString(),
+            timelineEndDate: rfp.timelineEndDate.toISOString(),
+            issueDate: rfp.issueDate.toISOString(),
+            createdAt: rfp.createdAt.toISOString(),
+            updatedAt: rfp.updatedAt.toISOString(),
+            awardedDate: rfp.awardedDate?.toISOString(),
+            bids: rfp.bids.map(bid => ({
+                id: bid.id,
+                vendorId: bid.vendorId,
+                status: bid.status,
+                evaluationScore: bid.evaluationScore,
+                submissionDate: bid.submissionDate?.toISOString(),
+                vendor: {
+                    id: bid.vendor.id,
+                    name: bid.vendor.name
+                }
+            }))
+        };
+
+        return res.json({ data: formattedRfp });
     } catch (error) {
         console.error("Get RFP error:", error);
         return res.status(500).json({ message: "Internal server error" });

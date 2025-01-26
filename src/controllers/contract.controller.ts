@@ -7,6 +7,7 @@ import { Rfp, RfpStatus } from "../models/Rfp";
 import { Bid } from "../models/Bid";
 import { AuthRequest } from "../middleware/auth";
 import { UserRole, ContractStatus, MilestoneStatus } from "../types/enums";
+import { blockchainService } from "../services/blockchain.service";
 
 const contractRepository = AppDataSource.getRepository(Contract);
 const milestoneRepository = AppDataSource.getRepository(Milestone);
@@ -65,21 +66,38 @@ export const awardContract = async (req: AuthRequest, res: Response) => {
 
         await contractRepository.save(contract);
 
-        // Update RFP status and awarded details
-        await rfpRepository.update(rfpId, { 
-            status: RfpStatus.CLOSED,
-            awardedContractId: contract.id,
-            awardedVendorId: bid.vendorId,
-            awardedDate: new Date()
-        });
+        // Update RFP status
+        rfp.status = RfpStatus.CLOSED;
+        rfp.awardedContractId = contract.id;
+        rfp.awardedVendorId = bid.vendorId;
+        rfp.awardedDate = new Date();
+
+        await rfpRepository.save(rfp);
+
+        // Log to blockchain and get transaction URL
+        const blockchainTxUrl = await blockchainService.logContractAward(
+            contract.id,
+            rfpId,
+            bid.vendorId,
+            bidId,
+            rfp.budget,
+            contract.startDate,
+            contract.endDate
+        );
 
         return res.status(201).json({
             message: "Contract awarded successfully",
             data: {
-                contract,
-                vendor: bid.vendor,
-                rfp: rfp
-            }
+                id: contract.id,
+                rfpId: contract.rfpId,
+                bidId: contract.bidId,
+                vendorId: contract.vendorId,
+                startDate: contract.startDate.toISOString(),
+                endDate: contract.endDate.toISOString(),
+                status: contract.status,
+                totalValue: contract.totalValue
+            },
+            blockchainTxUrl
         });
     } catch (error) {
         console.error("Contract award error:", error);
@@ -189,6 +207,17 @@ export const createMilestone = async (req: AuthRequest, res: Response) => {
 
         await milestoneRepository.save(milestone);
 
+        // Log to blockchain
+        await blockchainService.logMilestoneCreation(
+            milestone.id,
+            milestone.contractId,
+            milestone.title,
+            new Date(milestone.dueDate),
+            milestone.status,
+            req.user.id,
+            milestone.description
+        );
+
         return res.status(201).json({
             message: "Milestone created successfully",
             data: milestone
@@ -257,6 +286,17 @@ export const addMilestoneUpdate = async (req: AuthRequest, res: Response) => {
         // Update milestone status
         milestone.status = status;
         await milestoneRepository.save(milestone);
+
+        // Log to blockchain
+        await blockchainService.logMilestoneUpdate(
+            milestone.id,
+            milestone.contractId,
+            milestone.title,
+            milestone.dueDate,
+            status,
+            req.user.id,
+            details
+        );
 
         return res.status(201).json({
             message: "Milestone update added successfully",

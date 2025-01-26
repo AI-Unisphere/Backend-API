@@ -107,147 +107,232 @@
 
 #### Public Pages
 1. **Landing Page**
-   - System overview
+   - System overview and features
    - Registration/Login options
-   - Featured RFPs with countdown timers
-   - Clear timezone indicators
+   - Public RFP listing preview
+   - Active contracts showcase
+   - Clear role-based entry points (GPO/Vendor)
 
-2. **RFP Listing**
+2. **Public RFP Browser**
    - Filterable RFP grid/list
-   - Deadline countdown for active RFPs
    - Status indicators (Draft/Published/Closed)
-   - Timezone conversion helpers
+   - Basic RFP details preview
+   - Submission deadline information
+   - Category-based filtering
 
-3. **RFP Detail View**
-   - Complete RFP information
+3. **Public Contract Browser**
+   - List of all awarded contracts
+   - Basic contract information display
+   - Milestone progress indicators
+   - Search and filter capabilities
+   - Link to detailed contract view
+
+4. **Contract Detail View (Public)**
+   - Complete contract information
+   - RFP reference and details
+   - Awarded vendor information
    - Timeline visualization
-   - Submission deadline countdown
-   - Bid statistics (after deadline)
+   - Milestone list with status
+   - Public milestone updates feed
 
 #### GPO Dashboard
 1. **Overview Dashboard**
    - Active RFPs summary
-   - Upcoming deadlines
-   - Recent bid submissions
+   - Recent contract awards
+   - Upcoming milestone deadlines
+   - Quick action buttons
    - System statistics
 
 2. **RFP Management**
-   - RFP creation form with datetime pickers
-   - Timezone selection/display
+   - RFP creation and editing
    - Draft RFP listing
    - Publication controls
+   - Category management
+   - Bid evaluation overview
 
-3. **Bid Review**
-   - Bid listing by RFP
-   - Deadline status indicator
-   - Evaluation results (after deadline)
-   - Comparative bid analysis
+3. **Contract Award Interface**
+   - RFP selection
+   - Bid comparison view
+   - Evaluation scores display
+   - Contract details form
+     - Start/End dates
+     - Award confirmation
+   - Award status tracking
+
+4. **Contract Management**
+   - List of awarded contracts
+   - Contract status tracking
+   - Milestone creation interface
+   - Progress monitoring
+   - Vendor update notifications
+
+5. **Milestone Management**
+   - Milestone creation form
+   - Due date management
+   - Status tracking
+   - Update history view
+   - Media attachment viewer
 
 #### Vendor Dashboard
 1. **Overview Dashboard**
-   - Available RFPs with deadlines
-   - Draft bids
-   - Submitted bids status
-   - Deadline reminders
+   - Active bids status
+   - Awarded contracts summary
+   - Upcoming milestone deadlines
+   - Recent updates feed
+   - Quick action buttons
 
-2. **Bid Management**
-   - Bid creation/upload form
-   - Submission countdown
-   - Draft save functionality
-   - AI analysis results
+2. **RFP and Bid Management**
+   - Available RFPs listing
+   - Bid submission interface
+   - Evaluation results view
+   - Award notifications
+   - Contract acceptance
 
-### Frontend Implementation Guidelines
+3. **Contract Portfolio**
+   - List of awarded contracts
+   - Contract details view
+   - Milestone progress tracking
+   - Update submission interface
+   - Historical performance view
 
-1. **Datetime Handling**
-   - Use consistent UTC storage
-   - Display times in user's local timezone
-   - Include timezone indicators
-   - Implement countdown timers
+4. **Milestone Updates**
+   - Milestone status overview
+   - Update submission form
+     - Status selection
+     - Progress details
+     - Media upload
+   - Update history
+   - Timeline visualization
 
-2. **Form Components**
-   - Datetime pickers with timezone support
-   - Clear deadline input format
-   - Validation for future dates
-   - Time selection for deadlines
-
-3. **Display Components**
-   - Countdown timers for active RFPs
-   - Timezone conversion helpers
-   - Status badges with time context
-   - Timeline visualizations
-
-4. **User Experience**
-   - Clear deadline notifications
-   - Timezone awareness
-   - Automatic refresh near deadlines
-   - Graceful deadline cutoff
-
-5. **Error Handling**
-   - Clear datetime validation errors
-   - Timezone mismatch warnings
-   - Deadline approaching alerts
-   - Submission cutoff messages
-
-### Common Features Across All Pages
+#### Common Components
 1. **Navigation**
-   - Role-based menu
-   - Quick access to key functions
-   - Breadcrumb navigation
+   - Role-based menu system
+   - Quick access shortcuts
+   - Notification center
+   - Profile management
+   - Search functionality
 
-2. **Notifications**
-   - System alerts
-   - Deadline reminders
-   - Status updates
+2. **Contract Views**
+   - Contract summary cards
+   - Detailed contract view
+   - Milestone progress bars
+   - Status indicators
+   - Action buttons
 
-3. **Document Handling**
+3. **Milestone Components**
+   - Milestone cards
+   - Progress indicators
+   - Update submission forms
+   - Media attachment handling
+   - Timeline display
+
+4. **Document Management**
    - File upload interface
    - Document preview
    - Download management
+   - Version tracking
+   - Media gallery
 
-4. **User Interface Elements**
-   - Loading states
-   - Error messages
-   - Success confirmations
-   - Modal dialogs
-   - Form validations
+5. **Status Indicators**
+   - RFP status badges
+   - Contract status indicators
+   - Milestone progress visualization
+   - Update status markers
+   - Timeline indicators
 
-### Data Flow Considerations
-1. **Authentication**
+### Implementation Guidelines
+
+1. **Authentication Integration**
    - JWT token management
-   - Session handling
    - Role-based access control
+   - Session handling
+   - Secure route protection
+   - Login/logout flow
 
-2. **File Operations**
-   - Client-side file validation
-   - Upload progress tracking
-   - Download handling
+2. **Form Handling**
+   - Input validation
+   - File upload progress
+   - Error messaging
+   - Success notifications
+   - Auto-save functionality
 
-3. **Real-time Updates**
-   - Status change notifications
-   - Deadline alerts
-   - New submission notifications
+3. **Data Management**
+   - State management setup
+   - API integration
+   - Cache handling
+   - Real-time updates
+   - Error handling
 
-4. **Data Caching**
-   - RFP list caching
-   - User profile caching
-   - Category list caching
+4. **User Experience**
+   - Loading states
+   - Error boundaries
+   - Toast notifications
+   - Confirmation dialogs
+   - Progressive loading
 
-### Mobile Responsiveness
-All pages should be responsive with:
-1. **Adaptive Layouts**
-   - Flexible grids
-   - Responsive tables
-   - Mobile-friendly forms
+5. **Responsive Design**
+   - Mobile-first approach
+   - Breakpoint management
+   - Touch interactions
+   - Flexible layouts
+   - Print-friendly views
 
-2. **Touch Interactions**
-   - Touch-friendly buttons
-   - Swipe gestures
-   - Mobile file handling
+### Key Features to Implement
 
-3. **Performance Optimization**
+1. **Contract Award Flow**
+   ```
+   RFP Selection -> Bid Review -> Award Form -> Confirmation -> Success
+   ```
+
+2. **Milestone Management Flow**
+   ```
+   Contract View -> Create Milestone -> Set Details -> Publish
+   ```
+
+3. **Update Submission Flow**
+   ```
+   Select Milestone -> Add Update -> Upload Media -> Submit
+   ```
+
+4. **Progress Tracking**
+   ```
+   View Contract -> Milestone List -> Update History -> Timeline View
+   ```
+
+5. **Document Handling**
+   ```
+   Upload -> Preview -> Process -> Confirm -> Store
+   ```
+
+### Technical Considerations
+
+1. **State Management**
+   - Contract data caching
+   - Real-time updates
+   - Form state persistence
+   - User preferences
+   - Authentication state
+
+2. **API Integration**
+   - Request interceptors
+   - Error handling
+   - Token management
+   - Rate limiting
+   - Cache invalidation
+
+3. **Security Measures**
+   - Route guards
+   - Data encryption
+   - Input sanitization
+   - File validation
+   - CSRF protection
+
+4. **Performance**
    - Lazy loading
+   - Code splitting
    - Image optimization
-   - Minimal network requests
+   - Cache strategies
+   - Bundle optimization
 
 ## Base URL
 ```

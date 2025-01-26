@@ -10,6 +10,7 @@ import path from 'path';
 import { User } from "../models/User";
 import { bidEvaluationService } from "../services/bidEvaluation.service";
 import { Request } from "express";
+import { blockchainService } from "../services/blockchain.service";
 
 const bidRepository = AppDataSource.getRepository(Bid);
 const rfpRepository = AppDataSource.getRepository(Rfp);
@@ -90,7 +91,7 @@ export const analyzeBidProposal = async (req: AuthRequest, res: Response) => {
 };
 
 // Add this after submitBid function
-export const evaluateBid = async (bid: Bid): Promise<void> => {
+export const evaluateBid = async (bid: Bid): Promise<{ evaluationTxUrl: string }> => {
     try {
         const rfp = await rfpRepository.findOne({ where: { id: bid.rfpId } });
         if (!rfp) {
@@ -107,6 +108,16 @@ export const evaluateBid = async (bid: Bid): Promise<void> => {
         bid.evaluationDate = new Date();
 
         await bidRepository.save(bid);
+
+        // Log to blockchain and get transaction URL
+        const evaluationTxUrl = await blockchainService.logBidEvaluation(
+            bid.id,
+            bid.rfpId,
+            bid.evaluationScore,
+            JSON.stringify(evaluation)
+        );
+
+        return { evaluationTxUrl };
     } catch (error) {
         console.error("Bid evaluation error:", error);
         throw new Error("Failed to evaluate bid");
@@ -159,16 +170,28 @@ export const submitBid = async (req: AuthRequest, res: Response) => {
 
         await bidRepository.save(bid);
 
+        // Log to blockchain and get transaction URL
+        const submissionTxUrl = await blockchainService.logBidSubmission(
+            bid.id,
+            bid.rfpId,
+            bid.vendorId,
+            fs.readFileSync(proposalFile.path, 'utf-8')
+        );
+
         // Perform evaluation immediately but don't expose results yet
-        await evaluateBid(bid);
+        const { evaluationTxUrl } = await evaluateBid(bid);
 
         return res.status(201).json({
             message: "Bid submitted successfully",
-            bid: {
+            data: {
                 id: bid.id,
                 status: bid.status,
                 submissionDate: bid.submissionDate,
                 documentUrl: `/api/bids/rfp/${rfpId}/bid/${bid.id}/document`
+            },
+            blockchainTxUrls: {
+                submission: submissionTxUrl,
+                evaluation: evaluationTxUrl
             }
         });
     } catch (error: any) {

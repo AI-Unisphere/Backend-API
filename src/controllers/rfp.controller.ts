@@ -5,6 +5,7 @@ import { Rfp, RfpStatus } from "../models/Rfp";
 import { llmService } from "../services/rfpGeneration.service";
 import { AuthRequest } from "../middleware/auth";
 import { UserRole } from "../types/enums";
+import { blockchainService } from "../services/blockchain.service";
 
 const rfpRepository = AppDataSource.getRepository(Rfp);
 const categoryRepository = AppDataSource.getRepository(RfpCategory);
@@ -118,12 +119,22 @@ export const createRfp = async (req: AuthRequest, res: Response) => {
 
         await rfpRepository.save(rfp);
 
+        // Log to blockchain and get transaction URL
+        const blockchainTxUrl = await blockchainService.logRfpCreation(
+            rfp.id,
+            rfp.title,
+            rfp.budget,
+            rfp.submissionDeadline,
+            rfp.createdById
+        );
+
         return res.status(201).json({
             message: "RFP created successfully",
             data: {
                 ...rfp,
                 submissionDeadline: rfp.submissionDeadline.toISOString()
-            }
+            },
+            blockchainTxUrl
         });
     } catch (error) {
         console.error("RFP creation error:", error);
@@ -279,6 +290,9 @@ export const publishRfp = async (req: AuthRequest, res: Response) => {
 
         await rfpRepository.save(rfp);
 
+        // Log to blockchain and get transaction URL
+        const blockchainTxUrl = await blockchainService.logRfpPublication(rfp.id, 0); // 0 means unlimited bids
+
         return res.json({
             message: "RFP published successfully",
             data: {
@@ -286,7 +300,8 @@ export const publishRfp = async (req: AuthRequest, res: Response) => {
                 title: rfp.title,
                 status: rfp.status,
                 isPublished: rfp.isPublished
-            }
+            },
+            blockchainTxUrl
         });
     } catch (error) {
         console.error("Publish RFP error:", error);

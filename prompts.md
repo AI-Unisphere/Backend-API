@@ -5,9 +5,11 @@ This document catalogs all the AI prompts used in the UniSphere system for trans
 ## RFP Generation Prompts
 
 ### RFP Long Description Generation
+
 **Service**: `rfpGeneration.service.ts`
 **Purpose**: Generates comprehensive RFP descriptions from input parameters
-```
+
+``` markdown
 As an AI assistant specializing in government procurement with a focus on the telecommunications industry and coverage in education and health in Africa, create a detailed RFP (Request for Proposal) description based on the following information:
 
 Title: ${input.title}
@@ -33,14 +35,17 @@ Please generate a comprehensive, well-structured RFP description that:
 4. Includes budget considerations and pricing requirements
 5. Maintains a professional and formal tone
 6. Uses clear and unambiguous language
+7. Kindly avoid putting any form of placeholder text in the response.
 ```
 
 ## Bid Evaluation Prompts
 
 ### Initial Bid Analysis
+
 **Service**: `bidAnalysis.service.ts`
 **Purpose**: Provides initial analysis and suggestions for bid proposals
-```
+
+``` markdown
 As an AI expert in government procurement, analyze this bid proposal against the RFP requirements and provide actionable suggestions for improvement:
 
 RFP Details:

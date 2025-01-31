@@ -49,7 +49,9 @@ Please generate a comprehensive, well-structured RFP description that:
 3. Explains the evaluation criteria and their weightage
 4. Includes budget considerations and pricing requirements
 5. Maintains a professional and formal tone
-6. Uses clear and unambiguous language`;
+6. Uses clear and unambiguous language
+7. Kindly avoid putting any form of placeholder text in the response.
+`;
 
         return this.generateResponse(
             prompt,

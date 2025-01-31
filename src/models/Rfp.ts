@@ -88,4 +88,10 @@ export class Rfp {
 
     @Column({ type: "timestamp", nullable: true })
     awardedDate?: Date;
+
+    @Column({ type: "text", nullable: true })
+    creationTxUrl?: string;
+
+    @Column({ type: "text", nullable: true })
+    publicationTxUrl?: string;
 } 

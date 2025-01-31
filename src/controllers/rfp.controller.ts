@@ -120,7 +120,7 @@ export const createRfp = async (req: AuthRequest, res: Response) => {
         await rfpRepository.save(rfp);
 
         // Log to blockchain and get transaction URL
-        const blockchainTxUrl = await blockchainService.logRfpCreation(
+        const creationTxUrl = await blockchainService.logRfpCreation(
             rfp.id,
             rfp.title,
             rfp.budget,
@@ -128,13 +128,19 @@ export const createRfp = async (req: AuthRequest, res: Response) => {
             rfp.createdById
         );
 
+        // Update RFP with blockchain transaction URL
+        rfp.creationTxUrl = creationTxUrl;
+        await rfpRepository.save(rfp);
+
         return res.status(201).json({
             message: "RFP created successfully",
             data: {
                 ...rfp,
-                submissionDeadline: rfp.submissionDeadline.toISOString()
-            },
-            blockchainTxUrl
+                submissionDeadline: rfp.submissionDeadline.toISOString(),
+                blockchainTransactions: {
+                    creation: creationTxUrl
+                }
+            }
         });
     } catch (error) {
         console.error("RFP creation error:", error);
@@ -238,6 +244,10 @@ export const getRfpById = async (req: Request, res: Response) => {
             createdAt: rfp.createdAt.toISOString(),
             updatedAt: rfp.updatedAt.toISOString(),
             awardedDate: rfp.awardedDate?.toISOString(),
+            blockchainTransactions: {
+                creation: rfp.creationTxUrl,
+                publication: rfp.publicationTxUrl
+            },
             bids: rfp.bids.map(bid => ({
                 id: bid.id,
                 vendorId: bid.vendorId,
@@ -287,11 +297,14 @@ export const publishRfp = async (req: AuthRequest, res: Response) => {
         // Update RFP status
         rfp.isPublished = true;
         rfp.status = RfpStatus.PUBLISHED;
-
-        await rfpRepository.save(rfp);
+        rfp.issueDate = new Date();
 
         // Log to blockchain and get transaction URL
-        const blockchainTxUrl = await blockchainService.logRfpPublication(rfp.id, 0); // 0 means unlimited bids
+        const publicationTxUrl = await blockchainService.logRfpPublication(rfp.id, 0); // 0 means unlimited bids
+
+        // Update RFP with blockchain transaction URL
+        rfp.publicationTxUrl = publicationTxUrl;
+        await rfpRepository.save(rfp);
 
         return res.json({
             message: "RFP published successfully",
@@ -299,9 +312,13 @@ export const publishRfp = async (req: AuthRequest, res: Response) => {
                 id: rfp.id,
                 title: rfp.title,
                 status: rfp.status,
-                isPublished: rfp.isPublished
-            },
-            blockchainTxUrl
+                isPublished: rfp.isPublished,
+                issueDate: rfp.issueDate.toISOString(),
+                blockchainTransactions: {
+                    creation: rfp.creationTxUrl,
+                    publication: publicationTxUrl
+                }
+            }
         });
     } catch (error) {
         console.error("Publish RFP error:", error);

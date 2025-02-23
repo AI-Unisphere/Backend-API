@@ -156,8 +156,7 @@ docker-compose exec app npx hardhat run scripts/deploy.ts --network sepolia
 ```
 
 ### Accessing the Application
-- API: `http://localhost:3000/api`
-- Swagger Documentation: `http://localhost:3000/api-docs`
+- BaseURL: `http://localhost:3000/api`
 - PostgreSQL: `localhost:5432`
 
 ### Available Scripts
@@ -255,9 +254,11 @@ OPENAI_API_KEY=your_openai_api_key
 ```
 
 ## API Documentation
-- Detailed API documentation: [documentation.md](./documentation.md)
+- Detailed API documentation: [documentation.md](./docs/documentation.md)
 - Postman Collection: [UniSphere API Documentation](https://documenter.getpostman.com/view/11604430/2sAYQgg8Jy)
-- AI Prompts Documentation: [prompts.md](./prompts.md)
+- AI Prompts Documentation: [prompts.md](./docs/prompts.md)
+- Smart Contracts Documentation: [contracts.md](./docs/contracts.md)
+- Architecture Documentation: [architecture.md](./docs/architecture.md)
 
 ## Smart Contracts
 

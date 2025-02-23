@@ -107,8 +107,6 @@ export const evaluateBid = async (bid: Bid): Promise<{ evaluationTxUrl: string }
         bid.evaluationDetails = evaluation.details;
         bid.evaluationDate = new Date();
 
-        await bidRepository.save(bid);
-
         // Log to blockchain and get transaction URL
         const evaluationTxUrl = await blockchainService.logBidEvaluation(
             bid.id,
@@ -116,6 +114,10 @@ export const evaluateBid = async (bid: Bid): Promise<{ evaluationTxUrl: string }
             bid.evaluationScore,
             JSON.stringify(evaluation)
         );
+
+        // Save the evaluation transaction URL
+        bid.evaluationTxUrl = evaluationTxUrl;
+        await bidRepository.save(bid);
 
         return { evaluationTxUrl };
     } catch (error) {
@@ -168,15 +170,21 @@ export const submitBid = async (req: AuthRequest, res: Response) => {
             submissionDate: new Date()
         });
 
+        // Save the bid first to get an ID
         await bidRepository.save(bid);
 
         // Log to blockchain and get transaction URL
+        const fileContent = fs.readFileSync(proposalFile.path);
         const submissionTxUrl = await blockchainService.logBidSubmission(
-            bid.id,
+            bid.id,  // Now we have a valid bid ID
             bid.rfpId,
             bid.vendorId,
-            fs.readFileSync(proposalFile.path, 'utf-8')
+            fileContent.toString('base64')
         );
+
+        // Update the bid with the transaction URL
+        bid.submissionTxUrl = submissionTxUrl;
+        await bidRepository.save(bid);
 
         // Perform evaluation immediately but don't expose results yet
         const { evaluationTxUrl } = await evaluateBid(bid);
@@ -267,16 +275,19 @@ export const getBids = async (req: AuthRequest, res: Response) => {
         const limit = parseInt(req.query.limit as string) || 10;
         const skip = (page - 1) * limit;
 
-        // Validate RFP exists and belongs to the GPO
+        // Validate RFP exists
         const rfp = await rfpRepository.findOne({ 
-            where: { 
-                id: rfpId,
-                createdById: req.user.id 
-            } 
+            where: { id: rfpId },
+            relations: ["createdBy"]
         });
         
         if (!rfp) {
             return res.status(404).json({ message: "RFP not found" });
+        }
+
+        // Log access by non-owner GPO
+        if (rfp.createdById !== req.user.id) {
+            console.log(`GPO ${req.user.id} accessed bids for RFP ${rfpId} created by ${rfp.createdById}`);
         }
 
         const now = new Date();
@@ -314,17 +325,19 @@ export const getBids = async (req: AuthRequest, res: Response) => {
             .orderBy(showEvaluation ? "bid.evaluationScore" : "bid.submissionDate", "DESC")
             .getMany();
 
-        const totalPages = Math.ceil(totalCount / limit);
-
-        return res.json({ 
+        return res.json({
             data: bids,
             pagination: {
                 currentPage: page,
-                totalPages,
+                totalPages: Math.ceil(totalCount / limit),
                 totalItems: totalCount,
                 itemsPerPage: limit
             },
-            evaluationVisible: showEvaluation
+            rfpOwner: {
+                id: rfp.createdBy.id,
+                name: rfp.createdBy.name,
+                email: rfp.createdBy.email
+            }
         });
     } catch (error) {
         console.error("Get bids error:", error);
@@ -342,7 +355,7 @@ export const getBidById = async (req: AuthRequest, res: Response) => {
 
         const bid = await bidRepository.findOne({
             where: { id, rfpId },
-            relations: ["vendor", "rfp"]
+            relations: ["vendor", "rfp", "rfp.createdBy"]
         });
 
         if (!bid) {
@@ -377,25 +390,41 @@ export const getBidById = async (req: AuthRequest, res: Response) => {
 
         // Handle GPO access
         if (req.user.role === UserRole.GPO) {
+            // Log access by non-owner GPO
             if (bid.rfp.createdById !== req.user.id) {
-                return res.status(403).json({ message: "Access denied" });
+                console.log(`GPO ${req.user.id} accessed bid ${id} for RFP ${rfpId} created by ${bid.rfp.createdById}`);
             }
 
             if (!showEvaluation) {
                 return res.status(403).json({ 
                     message: "Bid evaluation can only be viewed after the submission deadline",
-                    deadline: deadline
+                    deadline: deadline,
+                    rfpOwner: {
+                        id: bid.rfp.createdBy.id,
+                        name: bid.rfp.createdBy.name,
+                        email: bid.rfp.createdBy.email
+                    }
                 });
             }
 
-            const { id, name, businessName, businessEmail } = bid.vendor;
-            bid.vendor = { id, name, businessName, businessEmail } as any;
+            const vendorData = {
+                id: bid.vendor.id,
+                name: bid.vendor.name,
+                businessName: bid.vendor.businessName,
+                businessEmail: bid.vendor.businessEmail
+            };
+            bid.vendor = vendorData as any;
             return res.json({ 
                 data: {
                     ...bid,
                     evaluationScore: bid.evaluationScore,
                     shortEvaluation: bid.shortEvaluation,
                     evaluationDetails: bid.evaluationDetails
+                },
+                rfpOwner: {
+                    id: bid.rfp.createdBy.id,
+                    name: bid.rfp.createdBy.name,
+                    email: bid.rfp.createdBy.email
                 }
             });
         }
@@ -431,7 +460,7 @@ export const downloadBidDocument = async (req: AuthRequest, res: Response) => {
         // Get both bid and RFP details
         const bid = await bidRepository.findOne({
             where: { id, rfpId },
-            relations: ["rfp"]
+            relations: ["rfp", "rfp.createdBy"]
         });
 
         if (!bid) {
@@ -449,10 +478,20 @@ export const downloadBidDocument = async (req: AuthRequest, res: Response) => {
             const now = new Date();
             const deadline = new Date(bid.rfp.submissionDeadline);
             
+            // Log access by non-owner GPO
+            if (bid.rfp.createdById !== req.user.id) {
+                console.log(`GPO ${req.user.id} downloaded bid document ${id} for RFP ${rfpId} created by ${bid.rfp.createdById}`);
+            }
+
             if (now < deadline) {
                 return res.status(403).json({ 
                     message: "Bid documents can only be downloaded after the submission deadline",
-                    deadline: deadline
+                    deadline: deadline,
+                    rfpOwner: {
+                        id: bid.rfp.createdBy.id,
+                        name: bid.rfp.createdBy.name,
+                        email: bid.rfp.createdBy.email
+                    }
                 });
             }
         }

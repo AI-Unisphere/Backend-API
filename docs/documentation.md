@@ -1,17 +1,82 @@
 # UniSphere API Documentation
 
+## Core Technologies
+
+### 1. AI Integration
+1. **Large Language Models (LLM)**
+   - Model: IBM Granite-13B-Instruct
+   - Use Cases:
+     - RFP Information Extraction
+     - Bid Analysis
+     - Bid Evaluation
+   - Features:
+     - Open-source foundation model
+     - JSON response formatting
+     - Temperature control (0.3 default)
+     - Maximum input tokens: 4,096
+     - Maximum output tokens: 1,024
+     - Top-p sampling: 0.9
+     - Instruction-tuned for procurement tasks
+
+2. **Retrieval-Augmented Generation (RAG)**
+   - Components:
+     - Embeddings Service (GraniteEmbeddingService)
+       - Model: granite-embedding-30m-english
+       - Dimensions: 768
+       - Maximum sequence length: 512
+       - Batch size: 32
+     - Vector Store
+       - In-memory storage
+       - Cosine similarity search
+       - Efficient document indexing
+     - Document Processing
+       - PDF text extraction
+       - Intelligent chunking
+       - Batch optimization
+   - Features:
+     - Semantic search with Granite embeddings
+     - Context-aware analysis
+     - Historical data integration
+     - Memory-optimized document processing
+     - Parallel batch processing
+
+3. **Blockchain Integration**
+   - Network: Sepolia Testnet
+   - Smart Contracts:
+     - ProcurementLog.sol
+   - Transaction Logging:
+     - RFP creation and publication
+     - Bid submissions
+     - Bid evaluations
+
+### 2. Authentication & Security
+1. **JWT Implementation**
+   - Token-based authentication
+   - Role-based access control
+   - Token expiration management
+   - Refresh token mechanism
+
+2. **Security Features**
+   - Password hashing (bcrypt)
+   - Email verification
+   - Account status tracking
+   - Rate limiting
+   - File validation
+
 ## User Flows and Journeys
 
 ### Roles Overview
 1. **GPO (Government Procurement Officer)**
    - Primary administrator role
    - Manages RFPs and vendor evaluations
-   - Can create other GPO accounts
+   - Access to AI-powered analysis tools
+   - Blockchain transaction verification
 
 2. **Vendor**
    - Business entity submitting bids
-   - Requires verification before full access
-   - Can submit and track proposals
+   - Access to AI proposal analysis
+   - Verification required
+   - Blockchain-verified submissions
 
 ### System Initialization
 1. **First-time Setup**
@@ -28,34 +93,35 @@
 
 2. **RFP Management Flow**
    a. **RFP Creation**
-      - Create RFP categories for organization
-      - Create new RFP with detailed requirements
-      - RFP starts in DRAFT status with null issue date
-      - Set submission deadline with specific time (e.g., 5 PM UTC)
-      - Define project timeline with start/end dates
+      - Create categories
+      - Upload RFP document
+      - AI-powered information extraction
+      - Manual review and adjustment
+      - Blockchain logging
    
-   b. **RFP Review & Publication**
-      - Review and edit RFP in draft status
-      - Publish RFP when ready
-      - System automatically sets issue date to current time
-      - Publication triggers visibility to vendors
+   b. **Document Processing**
+      - PDF text extraction
+      - RAG-enhanced analysis
+      - Structured information parsing
+      - Automatic form population
+   
+   c. **Publication Process**
+      - Review extracted information
+      - Set deadlines and timelines
+      - Blockchain transaction verification
+      - Public visibility management
 
-   c. **Timeline Management**
-      - Monitor RFP deadlines
-      - View countdown to submission deadline
-      - Track project timeline dates
-
-3. **Bid Management Flow**
+2. **Bid Evaluation Flow**
    a. **Before Deadline**
-      - View all submitted bids
-      - See vendor business information
-      - Cannot access bid details or evaluations
+      - Monitor submissions
+      - View preliminary AI analysis
+      - Track blockchain verification
    
    b. **After Deadline**
-      - Access full bid details
-      - View AI-generated evaluations
-      - Download proposal documents
-      - Compare bid scores and analyses
+      - Access RAG-enhanced evaluations
+      - Compare bid scores
+      - Review AI recommendations
+      - Verify blockchain records
 
 ### Vendor Journey
 
@@ -73,21 +139,31 @@
    - See clear submission deadlines with timezone
    - Track time remaining until deadlines
 
-3. **Bid Submission Flow**
-   a. **Proposal Preparation**
-      - Prepare proposal document (PDF)
-      - Use AI analysis for proposal improvement
-      - Save drafts for later completion
+3. **Bid Preparation**
+   a. **Document Analysis**
+      - Upload draft proposal
+      - Receive AI-powered analysis
+      - Get improvement suggestions
+      - Save draft versions
    
-   b. **Submission Process**
-      - Submit final bid before deadline
-      - System enforces deadline cutoff
-      - Receive confirmation with timestamp
-   
-   c. **Post-Submission**
-      - Track submitted bids
-      - View submission timestamps
-      - After deadline: access evaluation results
+   b. **AI Assistance**
+      - Technical compliance check
+      - Budget analysis
+      - Timeline assessment
+      - Documentation completeness
+
+2. **Submission Process**
+   a. **Final Submission**
+      - Submit proposal
+      - Receive blockchain verification
+      - Get submission confirmation
+      - Track transaction status
+
+   b. **Post-Submission**
+      - View submission details
+      - Access AI evaluation results
+      - Track blockchain verification
+      - Monitor status updates
 
 ### Public User Journey
 
@@ -240,99 +316,200 @@
    - Update status markers
    - Timeline indicators
 
-### Implementation Guidelines
+## API Endpoints
 
-1. **Authentication Integration**
-   - JWT token management
-   - Role-based access control
-   - Session handling
-   - Secure route protection
-   - Login/logout flow
+### RFP Management
+1. **Information Extraction**
+   ```
+   POST /api/rfps/extract-info
+   Content-Type: multipart/form-data
+   Authorization: Bearer <token>
+   
+   Body:
+   - document: PDF file (max 10MB)
+   
+   Response:
+   {
+     "message": "Information extracted successfully",
+     "data": {
+       "title": string,
+       "shortDescription": string,
+       "timeline": {
+         "startDate": ISO8601 string,
+         "endDate": ISO8601 string
+       },
+       "budget": number,
+       ...
+     }
+   }
+   ```
 
-2. **Form Handling**
-   - Input validation
-   - File upload progress
-   - Error messaging
-   - Success notifications
-   - Auto-save functionality
+2. **Bid Analysis**
+   ```
+   POST /api/bids/analyze
+   Content-Type: multipart/form-data
+   Authorization: Bearer <token>
+   
+   Body:
+   - document: PDF file
+   - rfpId: string
+   
+   Response:
+   {
+     "message": "Proposal analyzed successfully",
+     "analysis": {
+       "technicalCompliance": {
+         "score": number,
+         "findings": string[],
+         "recommendations": string[]
+       },
+       ...
+     }
+   }
+   ```
 
-3. **Data Management**
-   - State management setup
-   - API integration
-   - Cache handling
-   - Real-time updates
+## Implementation Guidelines
+
+### 1. AI Integration
+1. **RAG Implementation**
+   - Chunk size: 1000 tokens
+   - Overlap: 200 tokens
+   - Top k: 5 relevant chunks
+   - Rate limiting: 2-second intervals
+
+2. **Document Processing**
+   - PDF parsing with pdf-parse
+   - Text extraction optimization
    - Error handling
+   - Cleanup procedures
 
-4. **User Experience**
-   - Loading states
-   - Error boundaries
-   - Toast notifications
-   - Confirmation dialogs
-   - Progressive loading
+3. **Response Handling**
+   - JSON validation
+   - Error recovery
+   - Logging
+   - Performance monitoring
 
-5. **Responsive Design**
-   - Mobile-first approach
-   - Breakpoint management
-   - Touch interactions
-   - Flexible layouts
-   - Print-friendly views
+### 2. Security Measures
+1. **File Handling**
+   - Size limits (10MB)
+   - Type validation
+   - Secure storage
+   - Automatic cleanup
 
-### Key Features to Implement
-
-1. **Contract Award Flow**
-   ```
-   RFP Selection -> Bid Review -> Award Form -> Confirmation -> Success
-   ```
-
-2. **Milestone Management Flow**
-   ```
-   Contract View -> Create Milestone -> Set Details -> Publish
-   ```
-
-3. **Update Submission Flow**
-   ```
-   Select Milestone -> Add Update -> Upload Media -> Submit
-   ```
-
-4. **Progress Tracking**
-   ```
-   View Contract -> Milestone List -> Update History -> Timeline View
-   ```
-
-5. **Document Handling**
-   ```
-   Upload -> Preview -> Process -> Confirm -> Store
-   ```
-
-### Technical Considerations
-
-1. **State Management**
-   - Contract data caching
-   - Real-time updates
-   - Form state persistence
-   - User preferences
-   - Authentication state
-
-2. **API Integration**
-   - Request interceptors
-   - Error handling
-   - Token management
+2. **API Protection**
    - Rate limiting
-   - Cache invalidation
+   - Input validation
+   - Error handling
+   - Session management
 
-3. **Security Measures**
-   - Route guards
-   - Data encryption
-   - Input sanitization
-   - File validation
-   - CSRF protection
+### 3. Performance Optimization
+1. **LLM Usage**
+   - Token batching
+   - Response caching
+   - Error retry logic
+   - Rate limit management
 
-4. **Performance**
-   - Lazy loading
-   - Code splitting
-   - Image optimization
-   - Cache strategies
-   - Bundle optimization
+2. **RAG Efficiency**
+   - Embedding caching
+   - Vector search optimization
+   - Chunk management
+   - Context prioritization
+
+3. **Blockchain Integration**
+   - Asynchronous logging
+   - Transaction batching
+   - Gas optimization
+   - Error recovery
+
+## Error Handling
+
+### 1. Common Errors
+1. **File Processing**
+   - Invalid file type
+   - File size exceeded
+   - Corrupt PDF
+   - Text extraction failure
+
+2. **AI Processing**
+   - Token limit exceeded
+   - Rate limiting
+   - Invalid response format
+   - Context overflow
+
+3. **Blockchain**
+   - Transaction failure
+   - Gas estimation error
+   - Network issues
+   - Contract errors
+
+### 2. Error Recovery
+1. **Automatic Retry**
+   - Rate limit backoff
+   - Transaction resubmission
+   - API call retry
+   - Connection recovery
+
+2. **Fallback Mechanisms**
+   - Alternative processing paths
+   - Cached responses
+   - Default values
+   - Manual intervention triggers
+
+## Monitoring and Logging
+
+### 1. System Metrics
+1. **Performance**
+   - Response times
+   - Token usage
+   - API latency
+   - Resource utilization
+
+2. **Usage Statistics**
+   - API calls
+   - File processing
+   - AI requests
+   - Blockchain transactions
+
+### 2. Error Tracking
+1. **Log Categories**
+   - API errors
+   - Processing failures
+   - Security incidents
+   - Performance issues
+
+2. **Alert Thresholds**
+   - Error rates
+   - Response times
+   - Resource usage
+   - Security events
+
+## Future Considerations
+
+### 1. AI Enhancements
+1. **Model Improvements**
+   - Custom fine-tuning
+   - Domain adaptation
+   - Performance optimization
+   - Response quality
+
+2. **RAG Optimization**
+   - Improved chunking
+   - Better context selection
+   - Enhanced embedding
+   - Historical learning
+
+### 2. Blockchain Integration
+1. **Smart Contracts**
+   - Advanced features
+   - Gas optimization
+   - Cross-chain support
+   - Automated verification
+
+2. **Transaction Management**
+   - Batch processing
+   - Cost optimization
+   - Speed improvements
+   - Recovery mechanisms
 
 ## Base URL
 ```
@@ -1236,4 +1413,32 @@ Response (200 OK):
    - Visual progress indicators
    - Status updates timeline
    - Document/media gallery
-   - Historical data view 
+   - Historical data view
+
+## Open Source Strategy
+
+### 1. Model Selection
+- **IBM Granite Models**
+  - Open-source foundation models
+  - Community-driven development
+  - No vendor lock-in
+  - Customizable for procurement needs
+
+### 2. Future Enhancements
+1. **Model Improvements**
+   - Fine-tuning on procurement data
+   - Custom embedding models
+   - Domain-specific optimizations
+   - Response quality metrics
+
+2. **RAG Optimization**
+   - Enhanced chunking strategies
+   - Improved context selection
+   - Vector store performance
+   - Historical learning integration
+
+3. **Research Integration**
+   - Academic procurement papers
+   - Industry best practices
+   - Regulatory requirements
+   - Case study learnings 

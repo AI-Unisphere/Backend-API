@@ -42,7 +42,14 @@ export class Bid {
     @Column({ type: "text", nullable: true })
     aiSuggestions?: string;
 
-    // New evaluation fields
+    // Blockchain transaction URLs
+    @Column({ type: "text", nullable: true })
+    submissionTxUrl?: string;
+
+    @Column({ type: "text", nullable: true })
+    evaluationTxUrl?: string;
+
+    // Evaluation fields
     @Column({ type: "decimal", precision: 5, scale: 2, nullable: true })
     evaluationScore?: number;
 

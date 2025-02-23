@@ -1,4 +1,4 @@
-import { ethers, ContractTransactionResponse } from 'ethers';
+import { ethers } from 'ethers';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -29,9 +29,11 @@ class BlockchainService {
     private provider: ethers.JsonRpcProvider;
     private wallet: ethers.Wallet;
     private contract: ethers.Contract;
+    private readonly MAX_RETRIES = 3;
+    private readonly RETRY_DELAY = 2000; // 2 seconds
 
     constructor() {
-        // Always use the admin wallet for all transactions
+        // Initialize provider but don't connect immediately
         this.provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_URL);
         this.wallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY!, this.provider);
         this.contract = new ethers.Contract(
@@ -41,19 +43,45 @@ class BlockchainService {
         );
     }
 
+    private async ensureConnection(): Promise<void> {
+        let retries = 0;
+        while (retries < this.MAX_RETRIES) {
+            try {
+                await this.provider.getNetwork();
+                return; // Connection successful
+            } catch (error) {
+                retries++;
+                if (retries === this.MAX_RETRIES) {
+                    throw new Error('Failed to connect to Ethereum network after multiple attempts');
+                }
+                console.log(`Connection attempt ${retries} failed, retrying in ${this.RETRY_DELAY}ms...`);
+                await new Promise(resolve => setTimeout(resolve, this.RETRY_DELAY));
+            }
+        }
+    }
+
     private getEtherscanUrl(txHash: string): string {
         // Use Sepolia explorer for testnet
         return `https://sepolia.etherscan.io/tx/${txHash}`;
     }
 
-    private async handleTransaction(tx: Promise<ContractTransactionResponse>): Promise<string> {
+    private async handleTransaction(tx: Promise<ethers.ContractTransactionResponse>): Promise<string> {
         try {
+            // Ensure we're connected before attempting transaction
+            await this.ensureConnection();
+
             const transaction = await tx;
             await transaction.wait(1); // Wait for 1 confirmation
             return this.getEtherscanUrl(transaction.hash);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Blockchain transaction failed:', error);
-            throw new Error('Failed to record on blockchain');
+            if (error.code === 'NETWORK_ERROR' || error.code === 'TIMEOUT') {
+                throw new Error('Network connection failed. Please try again.');
+            } else if (error.code === 'INSUFFICIENT_FUNDS') {
+                throw new Error('Insufficient funds for blockchain transaction');
+            } else {
+                throw new Error('Failed to record on blockchain: ' + (error.message || 'Unknown error'));
+            }
         }
     }
 
@@ -92,10 +120,42 @@ class BlockchainService {
         vendorId: string,
         proposalContent: string
     ): Promise<string> {
-        const proposalHash = ethers.keccak256(ethers.toUtf8Bytes(proposalContent));
-        return this.handleTransaction(
-            this.contract.logBidSubmission(bidId, rfpId, vendorId, proposalHash)
-        );
+        try {
+            console.log('Debug - Input parameters:', {
+                bidId,
+                rfpId,
+                vendorId,
+                contentLength: proposalContent?.length || 0
+            });
+
+            // Convert the base64 content to bytes and hash it
+            const proposalHash = ethers.keccak256(
+                ethers.toUtf8Bytes(proposalContent)
+            );
+
+            console.log('Debug - Generated hash:', proposalHash);
+
+            // Use handleTransaction helper like other functions
+            return this.handleTransaction(
+                this.contract.logBidSubmission(
+                    bidId,
+                    rfpId,
+                    vendorId,
+                    proposalHash
+                )
+            );
+        } catch (error: any) {
+            console.error('Error in logBidSubmission:', {
+                error,
+                code: error?.code,
+                message: error?.message,
+                stack: error?.stack
+            });
+            if (error?.code === 'INSUFFICIENT_FUNDS') {
+                throw new Error('Insufficient funds for blockchain transaction');
+            }
+            throw new Error('Failed to record bid submission on blockchain: ' + (error?.message || 'Unknown error'));
+        }
     }
 
     async logBidEvaluation(

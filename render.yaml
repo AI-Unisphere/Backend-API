@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: unisphere-api
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DB_HOST
+        fromDatabase:
+          name: unisphere-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: unisphere-db
+          property: port
+      - key: DB_USERNAME
+        fromDatabase:
+          name: unisphere-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: unisphere-db
+          property: password
+      - key: DB_NAME
+        fromDatabase:
+          name: unisphere-db
+          property: database
+      - key: JWT_SECRET
+        sync: false
+      - key: HUGGINGFACE_API_KEY
+        sync: false
+
+databases:
+  - name: unisphere-db
+    databaseName: unisphere
+    plan: free 

@@ -41,7 +41,7 @@ export abstract class BaseLLMService {
                 {
                     role: "user" as const,
                     content: responseFormat === "json_object" 
-                        ? `${prompt}\n\nRespond with valid JSON only, no additional text.`
+                        ? `${prompt}\n\nRespond with valid JSON only, no additional text. Ensure the response matches the exact format specified.`
                         : prompt
                 }
             ];
@@ -56,10 +56,11 @@ export abstract class BaseLLMService {
             }
 
             const completion = await this.openai.chat.completions.create({
-                model: "gpt-4",
+                model: "gpt-4-turbo-preview",
                 messages,
                 temperature,
-                max_tokens: maxTokens
+                max_tokens: maxTokens,
+                response_format: responseFormat === "json_object" ? { type: "json_object" } : undefined
             });
 
             const content = completion.choices[0].message.content;
@@ -69,16 +70,33 @@ export abstract class BaseLLMService {
 
             if (responseFormat === "json_object") {
                 try {
-                    return JSON.parse(content.trim());
-                } catch (e) {
-                    throw new Error("Failed to parse JSON response from LLM");
+                    // Log the raw response for debugging
+                    console.log("Raw LLM response:", content);
+                    
+                    // Try to clean the response before parsing
+                    const cleanedContent = content.trim().replace(/^```json\s*|\s*```$/g, '');
+                    const parsedContent = JSON.parse(cleanedContent);
+                    
+                    // Validate the parsed content has the expected structure
+                    if (typeof parsedContent !== 'object' || parsedContent === null) {
+                        throw new Error("Response is not a valid JSON object");
+                    }
+                    
+                    return parsedContent;
+                } catch (e: unknown) {
+                    console.error("JSON parsing error:", e);
+                    console.error("Failed to parse content:", content);
+                    throw new Error(`Failed to parse JSON response from LLM: ${e instanceof Error ? e.message : 'Unknown parsing error'}`);
                 }
             }
 
             return content;
-        } catch (error) {
+        } catch (error: any) {
             console.error("OpenAI API error:", error);
-            throw new Error("Failed to generate response from LLM");
+            if (error?.response?.data) {
+                console.error("API error details:", error.response.data);
+            }
+            throw new Error(`Failed to generate response from LLM: ${error?.message || 'Unknown error'}`);
         }
     }
 

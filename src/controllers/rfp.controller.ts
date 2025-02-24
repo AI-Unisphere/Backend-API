@@ -104,10 +104,8 @@ export const createRfp = async (req: AuthRequest, res: Response) => {
             issueDate,
             submissionDeadline,
             categoryId,
-            technicalRequirements,
-            managementRequirements,
-            pricingDetails,
-            evaluationCriteria,
+            requirements,
+            evaluationMetrics,
             specialInstructions
         } = req.body;
 
@@ -136,11 +134,12 @@ export const createRfp = async (req: AuthRequest, res: Response) => {
         const longDescription = await rfpGenerationService.generateRfpDescription({
             title,
             shortDescription,
-            technicalRequirements,
-            managementRequirements,
-            pricingDetails,
-            evaluationCriteria,
+            timeline,
             budget,
+            submissionDeadline,
+            categoryId,
+            requirements,
+            evaluationMetrics,
             specialInstructions
         });
 
@@ -156,7 +155,9 @@ export const createRfp = async (req: AuthRequest, res: Response) => {
             submissionDeadline: deadlineDate,
             categoryId,
             createdById: req.user!.id,
-            status: RfpStatus.DRAFT
+            status: RfpStatus.DRAFT,
+            requirements,
+            evaluationMetrics
         });
 
         await rfpRepository.save(rfp);
@@ -476,124 +477,61 @@ export const updateRfp = async (req: AuthRequest, res: Response) => {
 // New endpoint for extracting RFP information from document
 export const extractRfpInfo = async (req: AuthRequest, res: Response) => {
     if (!req.user || req.user.role !== UserRole.GPO) {
-        return res.status(403).json({ message: "Only GPOs can use this feature" });
+        return res.status(403).json({ message: "Only GPOs can extract RFP information" });
     }
 
-    // Wrap multer upload in a Promise
-    const handleUpload = () => {
-        return new Promise<Express.Multer.File>((resolve, reject) => {
-            upload(req, res, (err) => {
-                if (err instanceof multer.MulterError) {
-                    reject({
-                        status: 400,
-                        message: err.code === 'LIMIT_FILE_SIZE' 
-                            ? 'File is too large. Maximum size is 10MB'
-                            : 'Error uploading file',
-                        error: err.code
-                    });
-                    return;
-                } 
-                
-                if (err) {
-                    reject({
-                        status: 400,
-                        message: err.message,
-                        error: 'INVALID_FILE'
-                    });
-                    return;
-                }
+    // Handle file upload
+    upload(req, res, async (err) => {
+        if (err) {
+            console.error('File upload error:', err);
+            return res.status(400).json({ message: err.message });
+        }
 
-                if (!req.file) {
-                    reject({
-                        status: 400,
-                        message: "No document provided"
-                    });
-                    return;
-                }
+        if (!req.file) {
+            return res.status(400).json({ message: "No file uploaded" });
+        }
 
-                resolve(req.file);
-            });
-        });
-    };
-
-    try {
-        // Handle file upload
-        const file = await handleUpload();
-        console.log("File uploaded successfully:", file.originalname);
-
-        // Read the PDF file as a buffer
-        const pdfBuffer = fs.readFileSync(file.path);
-        
-        // Extract text using pdf-parse
-        const pdfData = await pdfParse(pdfBuffer);
-        const fullText = pdfData.text;
-
-        console.log("PDF content extracted successfully, length:", fullText.length);
-
-        // Extract information using LLM
-        const extractedInfo = await rfpGenerationService.extractRfpInfo(fullText);
-        console.log("Information extracted successfully");
-
-        // Clean up the uploaded file
         try {
-            fs.unlinkSync(file.path);
-        } catch (unlinkError) {
-            console.error("Error cleaning up file:", unlinkError);
-        }
+            // Extract text from PDF
+            const dataBuffer = fs.readFileSync(req.file.path);
+            const pdfData = await pdfParse(dataBuffer);
 
-        // Return the extracted information
-        return res.json({
-            message: "Information extracted successfully",
-            data: {
-                title: extractedInfo.title || null,
-                shortDescription: extractedInfo.shortDescription || null,
-                timeline: {
-                    startDate: extractedInfo.timelineStartDate && extractedInfo.timelineStartDate instanceof Date && !isNaN(extractedInfo.timelineStartDate.getTime()) 
-                        ? extractedInfo.timelineStartDate.toISOString() 
-                        : null,
-                    endDate: extractedInfo.timelineEndDate && extractedInfo.timelineEndDate instanceof Date && !isNaN(extractedInfo.timelineEndDate.getTime())
-                        ? extractedInfo.timelineEndDate.toISOString()
-                        : null
-                },
-                budget: extractedInfo.budget || null,
-                issueDate: null, // This should be set when creating
-                submissionDeadline: extractedInfo.submissionDeadline && extractedInfo.submissionDeadline instanceof Date && !isNaN(extractedInfo.submissionDeadline.getTime())
-                    ? extractedInfo.submissionDeadline.toISOString()
-                    : null,
-                categoryId: null, // This needs manual selection
-                technicalRequirements: extractedInfo.technicalRequirements || null,
-                managementRequirements: extractedInfo.managementRequirements || null,
-                pricingDetails: extractedInfo.pricingDetails || null,
-                evaluationCriteria: extractedInfo.evaluationCriteria || null,
-                specialInstructions: extractedInfo.specialInstructions || null
-            }
-        });
-    } catch (error: any) {
-        // Clean up the uploaded file in case of error
-        if (req.file) {
-            try {
+            // Extract information using RFP generation service
+            const extractedInfo = await rfpGenerationService.extractRfpInfo(pdfData.text);
+
+            // Clean up uploaded file
+            fs.unlinkSync(req.file.path);
+
+            // Return the extracted information
+            return res.json({
+                message: "Information extracted successfully",
+                data: {
+                    title: extractedInfo.title || null,
+                    shortDescription: extractedInfo.shortDescription || null,
+                    timeline: {
+                        startDate: extractedInfo.timeline?.startDate || null,
+                        endDate: extractedInfo.timeline?.endDate || null
+                    },
+                    budget: extractedInfo.budget || null,
+                    submissionDeadline: extractedInfo.submissionDeadline || null,
+                    requirements: extractedInfo.requirements || {
+                        categories: {},
+                        uncategorized: []
+                    },
+                    evaluationMetrics: extractedInfo.evaluationMetrics || {
+                        categories: {},
+                        uncategorized: []
+                    },
+                    specialInstructions: extractedInfo.specialInstructions || null
+                }
+            });
+        } catch (error) {
+            console.error('Error extracting RFP information:', error);
+            // Clean up uploaded file in case of error
+            if (req.file) {
                 fs.unlinkSync(req.file.path);
-            } catch (unlinkError) {
-                console.error("Error cleaning up file:", unlinkError);
             }
+            return res.status(500).json({ message: "Failed to extract RFP information" });
         }
-
-        // If the error is from our upload handler, use its status code
-        const status = error.status || 500;
-        const message = error.message || "Internal server error";
-        const errorDetails = error.error || "Unknown error";
-        
-        console.error("Document processing error:", {
-            status,
-            message,
-            error: errorDetails,
-            stack: error.stack
-        });
-
-        return res.status(status).json({ 
-            message,
-            error: errorDetails,
-            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-        });
-    }
+    });
 };

@@ -2,6 +2,18 @@ import { HfInference, FeatureExtractionOutput } from '@huggingface/inference';
 import { graniteConfig } from './config';
 import { chunk } from 'lodash';
 
+export interface ChunkMetadata {
+    content: string;
+    category?: string;
+    confidence?: number;
+}
+
+interface ClassificationResponse {
+    sequence: string;
+    labels: string[];
+    scores: number[];
+}
+
 export class GraniteEmbeddingService {
     private hf: HfInference;
     private readonly config = graniteConfig.embeddingModel;
@@ -25,11 +37,20 @@ export class GraniteEmbeddingService {
             if (response.length === 0) {
                 throw new Error('Empty embedding response');
             }
+            let embedding: number[];
             if (Array.isArray(response[0])) {
                 // If it's a 2D array, return the first row
-                return response[0] as number[];
+                embedding = response[0] as number[];
+            } else {
+                embedding = response as number[];
             }
-            return response as number[];
+            
+            // Validate dimensions
+            if (embedding.length !== this.config.outputDimensions) {
+                throw new Error(`Invalid embedding dimensions: expected ${this.config.outputDimensions}, got ${embedding.length}`);
+            }
+            
+            return embedding;
         }
         throw new Error('Unexpected embedding format');
     }
@@ -37,12 +58,24 @@ export class GraniteEmbeddingService {
     async createEmbedding(text: string): Promise<number[]> {
         try {
             const normalizedText = this.normalizeText(text);
+            console.log(`Creating embedding for text (length: ${normalizedText.length})`);
+            
             const response = await this.hf.featureExtraction({
                 model: this.config.name,
                 inputs: normalizedText
             });
-
-            return this.ensureNumberArray(response);
+            
+            console.log('Raw embedding response type:', Array.isArray(response) ? 'array' : typeof response);
+            if (Array.isArray(response)) {
+                console.log('Response array length:', response.length);
+                if (response.length > 0) {
+                    console.log('First element type:', Array.isArray(response[0]) ? 'array' : typeof response[0]);
+                }
+            }
+            
+            const embedding = this.ensureNumberArray(response);
+            console.log(`Successfully created embedding with dimensions: ${embedding.length}`);
+            return embedding;
         } catch (error) {
             console.error('Error creating embedding:', error);
             throw new Error('Failed to create embedding');
@@ -72,6 +105,55 @@ export class GraniteEmbeddingService {
         } catch (error) {
             console.error('Error creating embeddings batch:', error);
             throw new Error('Failed to create embeddings batch');
+        }
+    }
+
+    async classifyChunks(chunks: string[]): Promise<ChunkMetadata[]> {
+        const categories = [
+            "Requirements",
+            "Technical Specifications",
+            "Pricing Details",
+            "Technical Requirements",
+            "Management Requirements",
+            "Evaluation Criteria",
+            "Budget Information",
+            "Timeline",
+            "Submission Guidelines",
+            "Legal Requirements",
+            "Background Information"
+        ];
+
+        try {
+            const results: ChunkMetadata[] = [];
+
+            for (const content of chunks) {
+                // Using feature extraction to create embeddings for both content and categories
+                const contentEmbedding = await this.createEmbedding(content);
+                const categoryEmbeddings = await Promise.all(
+                    categories.map(category => this.createEmbedding(category))
+                );
+
+                // Calculate similarities
+                const similarities = categoryEmbeddings.map(categoryEmbedding => 
+                    this.calculateSimilarity(contentEmbedding, categoryEmbedding)
+                );
+
+                // Find the best matching category
+                const maxIndex = similarities.indexOf(Math.max(...similarities));
+                const topCategory = categories[maxIndex];
+                const topScore = similarities[maxIndex];
+
+                results.push({
+                    content,
+                    category: topScore > 0.5 ? topCategory : undefined,
+                    confidence: topScore
+                });
+            }
+
+            return results;
+        } catch (error) {
+            console.error('Error classifying chunks:', error);
+            throw new Error('Failed to classify document chunks');
         }
     }
 

@@ -10,6 +10,17 @@ export enum RfpStatus {
     CLOSED = "CLOSED"
 }
 
+export interface EvaluationMetric {
+    name: string;
+    weightage: number;
+    description?: string;
+}
+
+export interface Requirements {
+    categories: Record<string, string[]>;
+    uncategorized: string[];
+}
+
 @Entity("rfps")
 export class Rfp {
     @PrimaryGeneratedColumn("uuid")
@@ -38,6 +49,15 @@ export class Rfp {
 
     @Column("timestamp")
     submissionDeadline!: Date;
+
+    @Column("jsonb", { nullable: true })
+    requirements?: Requirements;
+
+    @Column("jsonb", { nullable: true })
+    evaluationMetrics?: {
+        categories: Record<string, Record<string, number>>;
+        uncategorized: Array<EvaluationMetric>;
+    };
 
     @ManyToOne(() => RfpCategory)
     @JoinColumn({ name: "categoryId" })

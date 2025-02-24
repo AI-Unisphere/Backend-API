@@ -21,9 +21,9 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "resolveJsonModule": true,
-    "baseUrl": ".",
+    "baseUrl": "src",
     "paths": {
-      "*": ["node_modules/*", "src/types/*"]
+      "@/*": ["./*"]
     },
     "strict": true,
     "forceConsistentCasingInFileNames": true,
@@ -31,5 +31,5 @@
     "rootDir": "./src"
   },
   "exclude": ["node_modules", "dist"],
-  "include": ["./src/**/*.ts"]
+  "include": ["src/**/*"]
 } 

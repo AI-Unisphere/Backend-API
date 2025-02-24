@@ -14,31 +14,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: Install dependencies
-        run: npm install
-
       - name: Deploy to Render
         uses: johnbeynon/render-deploy-action@v0.0.8
         with:
           service-id: ${{ secrets.RENDER_SERVICE_ID }}
           api-key: ${{ secrets.RENDER_API_KEY }}
-
-      - name: Wait for deployment
-        run: sleep 60  # Wait for Render deployment to complete
-
-      - name: Import data
-        if: github.ref == 'refs/heads/main' # Only run on main branch
-        env:
-          DB_HOST: ${{ secrets.RENDER_DB_HOST }}
-          DB_PORT: ${{ secrets.RENDER_DB_PORT }}
-          DB_USERNAME: ${{ secrets.RENDER_DB_USERNAME }}
-          DB_PASSWORD: ${{ secrets.RENDER_DB_PASSWORD }}
-          DB_NAME: ${{ secrets.RENDER_DB_NAME }}
-        run: npm run data:import
 
       

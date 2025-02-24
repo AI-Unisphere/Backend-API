@@ -4,7 +4,7 @@
   "description": "AI-Powered Transparent Procurement System",
   "main": "dist/server.js",
   "scripts": {
-    "start": "node -r ts-node/register/transpile-only -r tsconfig-paths/register dist/server.js",
+    "start": "NODE_ENV=production node -r ts-node/register/transpile-only -r tsconfig-paths/register dist/server.js",
     "prebuild": "rm -rf dist",
     "build": "tsc -p tsconfig.json",
     "dev": "nodemon src/server.ts",

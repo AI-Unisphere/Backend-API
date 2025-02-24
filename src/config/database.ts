@@ -1,7 +1,12 @@
 import { DataSource } from "typeorm";
 import dotenv from "dotenv";
+import path from "path";
 
 dotenv.config();
+
+const entitiesPath = process.env.NODE_ENV === "production" 
+    ? [path.join(__dirname, "..", "models", "*.js")]
+    : ["src/models/**/*.ts"];
 
 export const AppDataSource = new DataSource({
     type: "postgres",
@@ -12,7 +17,7 @@ export const AppDataSource = new DataSource({
     database: process.env.DB_NAME || "unisphere",
     synchronize: process.env.NODE_ENV !== "production",
     logging: process.env.NODE_ENV !== "production",
-    entities: ["src/models/**/*.ts"],
+    entities: entitiesPath,
     migrations: ["src/migrations/**/*.ts"],
     subscribers: ["src/subscribers/**/*.ts"],
 }); 

@@ -1,0 +1,15 @@
+[
+  {
+    "id": "35a78da2-f492-4365-b142-1de80d3908cd",
+    "milestoneId": "7cb42e87-7460-4388-ad93-56c7873e95f1",
+    "contractId": "20b7ad27-38ea-483f-8117-a00c048447aa",
+    "updatedById": "e378e6e5-b738-40fa-9320-f007486a8b12",
+    "status": "IN_PROGRESS",
+    "details": "Completed server provisioning, starting configuration",
+    "media": [
+      "https://storage.example.com/screenshots/config1.png"
+    ],
+    "createdAt": "2025-01-26T04:07:43.981Z",
+    "updatedAt": "2025-01-26T04:07:43.981Z"
+  }
+]

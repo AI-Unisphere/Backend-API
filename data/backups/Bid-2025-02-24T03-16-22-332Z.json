@@ -1,0 +1,183 @@
+[
+  {
+    "id": "45fffb98-31ab-4813-98f8-373cb4147f0b",
+    "rfpId": "567db34e-75d0-4e57-bcc2-4f8c9370708d",
+    "vendorId": "e378e6e5-b738-40fa-9320-f007486a8b12",
+    "proposalDocument": "1737834903471-632691443-Connected Tech Proposal for Rural Schools Internet Connectivity Project.pdf",
+    "status": "SUBMITTED",
+    "aiCheckPerformed": false,
+    "aiSuggestions": null,
+    "submissionTxUrl": null,
+    "evaluationTxUrl": null,
+    "evaluationScore": null,
+    "shortEvaluation": null,
+    "longEvaluation": null,
+    "evaluationDetails": null,
+    "evaluationDate": null,
+    "submissionDate": "2025-01-25T18:55:03.501Z",
+    "createdAt": "2025-01-25T18:55:03.504Z",
+    "updatedAt": "2025-01-25T18:55:03.504Z"
+  },
+  {
+    "id": "49a3bd35-ee95-4fe0-bb24-a07b2bee2c9d",
+    "rfpId": "6fb87fcf-aba5-4760-a972-8f3d8028d07b",
+    "vendorId": "e378e6e5-b738-40fa-9320-f007486a8b12",
+    "proposalDocument": "1737855595764-280678292-Connected Tech Proposal for Rural Schools Internet Connectivity Project.pdf",
+    "status": "SUBMITTED",
+    "aiCheckPerformed": false,
+    "aiSuggestions": null,
+    "submissionTxUrl": null,
+    "evaluationTxUrl": null,
+    "evaluationScore": "85.00",
+    "shortEvaluation": "The proposal is comprehensive and aligns well with the RFP. However, there are areas of improvement in terms of cost-effectiveness and timeline compliance.",
+    "longEvaluation": "The proposal demonstrates a strong understanding of the project requirements and offers a detailed approach to achieving the project objectives. The vendor has extensive experience in similar projects, which is reflected in their well-structured management plan and innovative technical solution. However, the cost-effectiveness of the proposal could be improved. The proposed budget is slightly over the allocated budget, and the justification for the additional costs is not entirely convincing. Furthermore, the timeline for the project seems ambitious considering the scope of the project and the vendor's current resource allocation. Overall, the proposal is promising but would benefit from a more detailed cost breakdown and a more realistic timeline.",
+    "evaluationDetails": {
+      "pricing": 85,
+      "comments": {
+        "pricing": [
+          "The cost breakdown could be more detailed to justify the slightly higher proposed budget."
+        ],
+        "timeline": [
+          "The timeline for the project seems ambitious considering the scope of the project and the vendor's current resource allocation."
+        ],
+        "compliance": [
+          "The proposal meets all the RFP requirements and provides all the necessary documentation."
+        ],
+        "rfpAlignment": [
+          "The proposal aligns well with the strategic goals and success metrics of the RFP."
+        ],
+        "managementPlan": [
+          "The management plan is well-structured and demonstrates a clear implementation strategy."
+        ],
+        "projectOverview": [
+          "The proposal demonstrates a strong understanding of the project requirements and offers a detailed approach to achieving the project objectives."
+        ],
+        "complianceMatrix": [
+          "The proposal meets all technical, administrative, and legal requirements."
+        ],
+        "costEffectiveness": [
+          "The proposed budget is slightly over the allocated budget, and the justification for the additional costs is not entirely convincing."
+        ],
+        "productEffectiveness": [
+          "The proposed solution is innovative and of high technical merit."
+        ],
+        "supplierQualifications": [
+          "The vendor has extensive experience in similar projects, which is reflected in their well-structured management plan and innovative technical solution."
+        ]
+      },
+      "timeline": 80,
+      "compliance": 90,
+      "rfpAlignment": 90,
+      "managementPlan": 90,
+      "projectOverview": 90,
+      "complianceMatrix": 90,
+      "costEffectiveness": 70,
+      "productEffectiveness": 90,
+      "supplierQualifications": 90
+    },
+    "evaluationDate": "2025-01-26T00:40:09.797Z",
+    "submissionDate": "2025-01-26T00:39:55.792Z",
+    "createdAt": "2025-01-26T00:39:55.793Z",
+    "updatedAt": "2025-01-26T00:40:09.820Z"
+  },
+  {
+    "id": "548cfb63-3cb7-4d43-b5a1-9ae609777e85",
+    "rfpId": "a5fd6c82-8242-48b3-9db4-f743245994cf",
+    "vendorId": "e378e6e5-b738-40fa-9320-f007486a8b12",
+    "proposalDocument": "1738744158394-340694346-Connected Tech Proposal for Rural Schools Internet Connectivity Project.pdf",
+    "status": "SUBMITTED",
+    "aiCheckPerformed": false,
+    "aiSuggestions": null,
+    "submissionTxUrl": null,
+    "evaluationTxUrl": null,
+    "evaluationScore": "78.00",
+    "shortEvaluation": "The proposal is largely compliant with the RFP, demonstrating a clear understanding of the project requirements and a feasible implementation plan. However, there are concerns regarding the cost-effectiveness and the supplier's qualifications.",
+    "longEvaluation": "The proposal submitted for the Rural Digital Access Initiative demonstrates a good understanding of the project's objectives, with a comprehensive approach to establishing broadband connectivity in remote villages. The proposed solution is technically sound and innovative, with a clear timeline for implementation. However, the cost-effectiveness of the proposal is questionable, with a lack of detailed justification for the budget allocation. Additionally, the supplier's qualifications could be better demonstrated, with limited evidence of relevant experience and certifications. The pricing structure is transparent, but the value proposition could be stronger. The management plan is well-structured, with clear resource allocation and implementation strategy. The proposal is largely compliant with the RFP's technical, administrative, and legal requirements. However, the strategic fit with the RFP could be better articulated, with more focus on success metrics.",
+    "evaluationDetails": {
+      "pricing": 75,
+      "comments": {
+        "pricing": [
+          "The pricing structure is transparent, but the value proposition could be stronger."
+        ],
+        "timeline": [
+          "The project schedule is clear and feasible, with alignment to the RFP's timeline."
+        ],
+        "compliance": [
+          "The proposal is largely compliant with the RFP's requirements, but could provide more detailed documentation."
+        ],
+        "rfpAlignment": [
+          "The strategic fit with the RFP could be better articulated, with more focus on success metrics."
+        ],
+        "managementPlan": [
+          "The management plan is well-structured, with clear resource allocation and implementation strategy."
+        ],
+        "projectOverview": [
+          "The approach to the project is comprehensive and shows a good understanding of the requirements."
+        ],
+        "complianceMatrix": [
+          "The proposal is largely compliant with the RFP's technical, administrative, and legal requirements."
+        ],
+        "costEffectiveness": [
+          "The budget allocation lacks detailed justification, raising concerns about cost-effectiveness."
+        ],
+        "productEffectiveness": [
+          "The proposed solution is technically sound and innovative, demonstrating high product effectiveness."
+        ],
+        "supplierQualifications": [
+          "The supplier's qualifications are not strongly demonstrated, with limited evidence of relevant experience and certifications."
+        ]
+      },
+      "timeline": 85,
+      "compliance": 80,
+      "rfpAlignment": 75,
+      "managementPlan": 80,
+      "projectOverview": 80,
+      "complianceMatrix": 80,
+      "costEffectiveness": 70,
+      "productEffectiveness": 85,
+      "supplierQualifications": 70
+    },
+    "evaluationDate": "2025-02-05T07:29:57.386Z",
+    "submissionDate": "2025-02-05T07:29:18.426Z",
+    "createdAt": "2025-02-05T07:29:18.427Z",
+    "updatedAt": "2025-02-05T07:29:57.420Z"
+  },
+  {
+    "id": "b6f08289-268f-4e69-a876-fd08453078f3",
+    "rfpId": "fa005e2b-bf46-4863-a43d-26d6e82aa7a0",
+    "vendorId": "e378e6e5-b738-40fa-9320-f007486a8b12",
+    "proposalDocument": "1738860075214-220820821-Proposal for Rural Broadband Expansion Project.pdf",
+    "status": "SUBMITTED",
+    "aiCheckPerformed": false,
+    "aiSuggestions": null,
+    "submissionTxUrl": null,
+    "evaluationTxUrl": null,
+    "evaluationScore": null,
+    "shortEvaluation": null,
+    "longEvaluation": null,
+    "evaluationDetails": null,
+    "evaluationDate": null,
+    "submissionDate": "2025-02-06T15:41:15.285Z",
+    "createdAt": "2025-02-06T15:41:15.289Z",
+    "updatedAt": "2025-02-06T15:41:15.289Z"
+  },
+  {
+    "id": "7e85b5de-ce3a-4c30-a1df-d3e5e730fbbe",
+    "rfpId": "95a8cae0-9fda-43e1-88ab-da961350e30e",
+    "vendorId": "e378e6e5-b738-40fa-9320-f007486a8b12",
+    "proposalDocument": "1738918370436-540335120-Proposal for Rural Broadband Expansion Project.pdf",
+    "status": "SUBMITTED",
+    "aiCheckPerformed": false,
+    "aiSuggestions": null,
+    "submissionTxUrl": null,
+    "evaluationTxUrl": null,
+    "evaluationScore": null,
+    "shortEvaluation": null,
+    "longEvaluation": null,
+    "evaluationDetails": null,
+    "evaluationDate": null,
+    "submissionDate": "2025-02-07T07:52:50.460Z",
+    "createdAt": "2025-02-07T07:52:50.461Z",
+    "updatedAt": "2025-02-07T07:54:10.635Z"
+  }
+]

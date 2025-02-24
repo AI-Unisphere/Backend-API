@@ -1,0 +1,37 @@
+[
+  {
+    "id": "8b290218-0544-4d3b-96c7-49f1021c86dc",
+    "name": "Rural Connectivity",
+    "description": "Projects focused on providing internet connectivity to rural areas",
+    "createdAt": "2025-01-25T15:31:49.323Z",
+    "updatedAt": "2025-01-25T15:31:49.323Z"
+  },
+  {
+    "id": "d7d480a6-06e1-4275-b7a1-8cc25192aa58",
+    "name": "5G Expansion",
+    "description": "Projects focused on expanding the 5G network in the underserved aread",
+    "createdAt": "2025-01-26T01:22:47.085Z",
+    "updatedAt": "2025-01-26T01:22:47.085Z"
+  },
+  {
+    "id": "02d60125-8615-4bf0-8a3d-be27e150e914",
+    "name": "Rural Healthcare Connectivity",
+    "description": "Projects focused on providing high-speed internet connectivity to healthcare facilities in underserved areas to enhance telemedicine and digital healthcare services",
+    "createdAt": "2025-01-26T09:55:26.981Z",
+    "updatedAt": "2025-01-26T09:55:26.981Z"
+  },
+  {
+    "id": "1bf92fe0-a01f-4176-8689-63595af4450d",
+    "name": "Bandwith Outreach",
+    "description": "Bandwith Outreach",
+    "createdAt": "2025-01-26T13:01:56.401Z",
+    "updatedAt": "2025-01-26T13:01:56.401Z"
+  },
+  {
+    "id": "34feb127-8cf4-4130-bc76-67a99bb4adc1",
+    "name": "Cantonal Connectivity ",
+    "description": "Canton connectivity issues",
+    "createdAt": "2025-02-05T03:38:08.568Z",
+    "updatedAt": "2025-02-05T03:38:08.568Z"
+  }
+]

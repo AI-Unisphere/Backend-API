@@ -1,0 +1,15 @@
+[
+  {
+    "id": "20b7ad27-38ea-483f-8117-a00c048447aa",
+    "rfpId": "6fb87fcf-aba5-4760-a972-8f3d8028d07b",
+    "vendorId": "e378e6e5-b738-40fa-9320-f007486a8b12",
+    "bidId": "49a3bd35-ee95-4fe0-bb24-a07b2bee2c9d",
+    "status": "ACTIVE",
+    "awardDate": "2025-01-26T04:01:12.906Z",
+    "startDate": "2024-03-19T23:00:00.000Z",
+    "endDate": "2024-09-19T22:00:00.000Z",
+    "totalValue": "200000.00",
+    "createdAt": "2025-01-26T04:01:12.909Z",
+    "updatedAt": "2025-01-26T04:01:12.909Z"
+  }
+]

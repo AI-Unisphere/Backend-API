@@ -1,0 +1,62 @@
+[
+  {
+    "id": "723beb9f-187c-4c4a-af3e-3f894a71ac5c",
+    "name": "Admin GPO",
+    "businessName": null,
+    "email": "admin@gpo.com",
+    "password": "$2a$10$XyItMcy8tygQlNn9cmUSDuDQ.ftnmW2K7SykuD9h5LRx5ngtnBqg2",
+    "role": "GPO",
+    "businessRegistrationNumber": null,
+    "isVerified": false,
+    "verificationToken": null,
+    "verificationTokenExpiry": null,
+    "businessEmail": null,
+    "createdAt": "2025-01-25T12:39:43.990Z",
+    "updatedAt": "2025-01-25T12:39:43.990Z"
+  },
+  {
+    "id": "566bfce9-d0c0-4847-a921-f64c5301633c",
+    "name": "Samuel Mensah",
+    "businessName": null,
+    "email": "samuel.mensah@gpo.com",
+    "password": "$2a$10$fF8pcbXqnX/Fh2YUV5pkYusAA3kfQb8ja6AIpK/RqBbiAMc4reABi",
+    "role": "GPO",
+    "businessRegistrationNumber": null,
+    "isVerified": false,
+    "verificationToken": null,
+    "verificationTokenExpiry": null,
+    "businessEmail": null,
+    "createdAt": "2025-01-25T12:40:30.612Z",
+    "updatedAt": "2025-01-25T12:40:30.612Z"
+  },
+  {
+    "id": "e378e6e5-b738-40fa-9320-f007486a8b12",
+    "name": "Amina Kamau",
+    "businessName": "ConnectEd Technologies",
+    "email": "amina.kamau@connectedtech.com",
+    "password": "$2a$10$ez7Uk.wrt5lVlgy5QhYIGeuInBgm/GCiHPK9R1yxkCpPI60RJEh62",
+    "role": "VENDOR",
+    "businessRegistrationNumber": "12345",
+    "isVerified": true,
+    "verificationToken": null,
+    "verificationTokenExpiry": null,
+    "businessEmail": "maconzy12@gmail.com",
+    "createdAt": "2025-01-25T12:40:45.301Z",
+    "updatedAt": "2025-01-25T13:35:20.162Z"
+  },
+  {
+    "id": "dbf8a50a-bf50-4226-92a8-920b78d3c85b",
+    "name": "Melody Amaizu",
+    "businessName": "Meldroid Tech",
+    "email": "lettaz1998@gmail.com",
+    "password": "$2a$10$6DQl2n6eUO3NKeVTgw.ZI.J2/PkR0Mal9gbbKL3BnFLtBPUdEgotG",
+    "role": "VENDOR",
+    "businessRegistrationNumber": null,
+    "isVerified": false,
+    "verificationToken": null,
+    "verificationTokenExpiry": null,
+    "businessEmail": null,
+    "createdAt": "2025-01-26T12:28:15.963Z",
+    "updatedAt": "2025-01-26T12:28:15.963Z"
+  }
+]

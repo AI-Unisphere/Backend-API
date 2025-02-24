@@ -12,7 +12,11 @@
     "deploy": "hardhat run scripts/deploy.ts --network sepolia",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/config/database.ts",
-    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/config/database.ts"
+    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/config/database.ts",
+    "data:export": "ts-node scripts/export-data.ts",
+    "data:import": "ts-node scripts/import-data.ts",
+    "docker:data:export": "docker-compose exec app npm run data:export",
+    "docker:data:import": "docker-compose exec app npm run data:import"
   },
   "dependencies": {
     "@huggingface/inference": "^2.6.4",

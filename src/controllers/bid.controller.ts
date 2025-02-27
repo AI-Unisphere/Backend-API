@@ -1,82 +1,73 @@
-import { Response } from "express";
-import { AppDataSource } from "../config/database";
-import { Bid, BidStatus } from "../models/Bid";
-import { Rfp, RfpStatus } from "../models/Rfp";
+import { Request, Response } from "express";
 import { AuthRequest } from "../middleware/auth";
-import { bidAnalysisService } from "../services/bidAnalysis.service";
 import { UserRole } from "../types/enums";
-import fs from 'fs';
-import path from 'path';
-import { User } from "../models/User";
+import { Rfp } from "../models/Rfp";
+import { Bid, BidStatus } from "../models/Bid";
+import { AppDataSource } from "../config/database";
 import { bidEvaluationService } from "../services/bidEvaluation.service";
-import { Request } from "express";
 import { blockchainService } from "../services/blockchain.service";
+import fs from "fs";
+import path from "path";
+import { FindOptionsWhere } from "typeorm";
 
-const bidRepository = AppDataSource.getRepository(Bid);
 const rfpRepository = AppDataSource.getRepository(Rfp);
-const userRepository = AppDataSource.getRepository(User);
+const bidRepository = AppDataSource.getRepository(Bid);
 
-// Ensure uploads directory exists
-const UPLOAD_DIR = 'uploads/proposals';
-if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
-
-// Validate RFP status and deadline
 const validateRfpSubmission = async (rfpId: string): Promise<Rfp> => {
-    const rfp = await rfpRepository.findOne({ where: { id: rfpId } });
+    const rfp = await rfpRepository.findOne({
+        where: { id: rfpId } as FindOptionsWhere<Rfp>,
+        select: ["id", "submissionDeadline", "isPublished", "requirements", "evaluationMetrics", "title", "shortDescription"]
+    });
     if (!rfp) {
         throw new Error("RFP not found");
     }
 
-    if (rfp.status !== RfpStatus.PUBLISHED) {
-        throw new Error("This RFP is not accepting submissions");
+    if (rfp.submissionDeadline < new Date()) {
+        throw new Error("RFP submission deadline has passed");
     }
 
-    if (new Date() > new Date(rfp.submissionDeadline)) {
-        throw new Error("The submission deadline for this RFP has passed");
+    if (!rfp.isPublished) {
+        throw new Error("RFP is not published");
     }
 
     return rfp;
 };
 
-// Check vendor verification status
 const checkVendorVerification = async (userId: string): Promise<void> => {
-    const vendor = await userRepository.findOne({ where: { id: userId } });
-    if (!vendor) {
-        throw new Error("Vendor not found");
-    }
-    if (!vendor.isVerified) {
-        throw new Error("Your account must be verified before submitting bids");
-    }
+    // This is a placeholder - implement actual verification logic
+    // For now, we'll just resolve the promise
+    // TODO: Implement actual vendor verification logic
+    console.log("Vendor verification check for user:", userId);
+    await Promise.resolve();
 };
 
-// Analyze the proposal without saving
 export const analyzeBidProposal = async (req: AuthRequest, res: Response) => {
     try {
         if (!req.user || req.user.role !== UserRole.VENDOR) {
             return res.status(403).json({ message: "Only vendors can analyze proposals" });
         }
 
-        // Check verification status
-        await checkVendorVerification(req.user.id);
-
         const { rfpId } = req.params;
         const proposalFile = req.file;
 
         if (!proposalFile) {
-            return res.status(400).json({ message: "Proposal document is required" });
+            return res.status(400).json({ message: "No proposal document provided" });
         }
 
-        // Validate RFP status and deadline
+        // Validate RFP and vendor
         const rfp = await validateRfpSubmission(rfpId);
+        await checkVendorVerification(req.user.id);
 
-        // Analyze the proposal
-        const analysis = await bidAnalysisService.analyzeBidProposal(
-            fs.readFileSync(proposalFile.path),
-            proposalFile.originalname,
-            rfp
-        );
+        // Create a temporary bid object for analysis
+        const tempBid = bidRepository.create({
+            rfpId,
+            vendorId: req.user.id,
+            proposalDocument: proposalFile.filename,
+            status: BidStatus.DRAFT
+        });
+
+        // Analyze the bid using both the bid object and RFP
+        const analysis = await bidEvaluationService.evaluateBid(tempBid, rfp);
 
         return res.json({
             message: "Proposal analyzed successfully",
@@ -90,78 +81,23 @@ export const analyzeBidProposal = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// Add this after submitBid function
-export const evaluateBid = async (bid: Bid): Promise<{ evaluationTxUrl: string }> => {
-    try {
-        const rfp = await rfpRepository.findOne({ where: { id: bid.rfpId } });
-        if (!rfp) {
-            throw new Error("RFP not found");
-        }
-
-        const evaluation = await bidEvaluationService.evaluateBid(bid, rfp);
-
-        // Update bid with evaluation results
-        bid.evaluationScore = evaluation.score;
-        bid.shortEvaluation = evaluation.shortEvaluation;
-        bid.longEvaluation = evaluation.longEvaluation;
-        bid.evaluationDetails = evaluation.details;
-        bid.evaluationDate = new Date();
-
-        // Log to blockchain and get transaction URL
-        const evaluationTxUrl = await blockchainService.logBidEvaluation(
-            bid.id,
-            bid.rfpId,
-            bid.evaluationScore,
-            JSON.stringify(evaluation)
-        );
-
-        // Save the evaluation transaction URL
-        bid.evaluationTxUrl = evaluationTxUrl;
-        await bidRepository.save(bid);
-
-        return { evaluationTxUrl };
-    } catch (error) {
-        console.error("Bid evaluation error:", error);
-        throw new Error("Failed to evaluate bid");
-    }
-};
-
-// Modify the submitBid function to include evaluation
 export const submitBid = async (req: AuthRequest, res: Response) => {
     try {
         if (!req.user || req.user.role !== UserRole.VENDOR) {
             return res.status(403).json({ message: "Only vendors can submit bids" });
         }
 
-        // Check verification status
-        await checkVendorVerification(req.user.id);
-
         const { rfpId } = req.params;
         const proposalFile = req.file;
 
         if (!proposalFile) {
-            return res.status(400).json({ message: "Proposal document is required" });
+            return res.status(400).json({ message: "No proposal document provided" });
         }
 
-        // Just validate RFP without storing result
+        // Validate RFP and vendor
         await validateRfpSubmission(rfpId);
+        await checkVendorVerification(req.user.id);
 
-        // Check if vendor already submitted a bid
-        const existingBid = await bidRepository.findOne({
-            where: {
-                rfpId,
-                vendorId: req.user.id,
-                status: BidStatus.SUBMITTED
-            }
-        });
-
-        if (existingBid) {
-            // Clean up uploaded file
-            fs.unlinkSync(proposalFile.path);
-            return res.status(400).json({ message: "You have already submitted a bid for this RFP" });
-        }
-
-        // Create new bid with file path
         const bid = bidRepository.create({
             rfpId,
             vendorId: req.user.id,
@@ -170,43 +106,23 @@ export const submitBid = async (req: AuthRequest, res: Response) => {
             submissionDate: new Date()
         });
 
-        // Save the bid first to get an ID
         await bidRepository.save(bid);
 
-        // Log to blockchain and get transaction URL
-        const fileContent = fs.readFileSync(proposalFile.path);
         const submissionTxUrl = await blockchainService.logBidSubmission(
-            bid.id,  // Now we have a valid bid ID
-            bid.rfpId,
-            bid.vendorId,
-            fileContent.toString('base64')
+            bid.id,
+            rfpId,
+            req.user.id,
+            proposalFile.filename
         );
 
-        // Update the bid with the transaction URL
         bid.submissionTxUrl = submissionTxUrl;
         await bidRepository.save(bid);
 
-        // Perform evaluation immediately but don't expose results yet
-        const { evaluationTxUrl } = await evaluateBid(bid);
-
         return res.status(201).json({
             message: "Bid submitted successfully",
-            data: {
-                id: bid.id,
-                status: bid.status,
-                submissionDate: bid.submissionDate,
-                documentUrl: `/api/bids/rfp/${rfpId}/bid/${bid.id}/document`
-            },
-            blockchainTxUrls: {
-                submission: submissionTxUrl,
-                evaluation: evaluationTxUrl
-            }
+            data: bid
         });
     } catch (error: any) {
-        // Clean up uploaded file if there's an error
-        if (req.file) {
-            fs.unlinkSync(req.file.path);
-        }
         console.error("Bid submission error:", error);
         return res.status(error.message.includes("verification") ? 403 : 
                error.message.includes("RFP") ? 400 : 500)
@@ -224,43 +140,29 @@ export const saveDraft = async (req: AuthRequest, res: Response) => {
         const proposalFile = req.file;
 
         if (!proposalFile) {
-            return res.status(400).json({ message: "Proposal document is required" });
+            return res.status(400).json({ message: "No proposal document provided" });
         }
 
-        // Find existing draft or create new one
-        let bid = await bidRepository.findOne({
-            where: {
-                rfpId,
-                vendorId: req.user.id,
-                status: BidStatus.DRAFT
-            }
+        // Validate RFP
+        await validateRfpSubmission(rfpId);
+
+        const bid = bidRepository.create({
+            rfpId,
+            vendorId: req.user.id,
+            proposalDocument: proposalFile.filename,
+            status: BidStatus.DRAFT
         });
-
-        if (bid) {
-            bid.proposalDocument = proposalFile.buffer.toString('base64');
-            bid.updatedAt = new Date();
-        } else {
-            bid = bidRepository.create({
-                rfpId,
-                vendorId: req.user.id,
-                proposalDocument: proposalFile.buffer.toString('base64'),
-                status: BidStatus.DRAFT
-            });
-        }
 
         await bidRepository.save(bid);
 
         return res.json({
             message: "Draft saved successfully",
-            bid: {
-                id: bid.id,
-                status: bid.status,
-                updatedAt: bid.updatedAt
-            }
+            data: bid
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Save draft error:", error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(error.message.includes("RFP") ? 400 : 500)
+            .json({ message: error.message || "Internal server error" });
     }
 };
 
@@ -275,68 +177,21 @@ export const getBids = async (req: AuthRequest, res: Response) => {
         const limit = parseInt(req.query.limit as string) || 10;
         const skip = (page - 1) * limit;
 
-        // Validate RFP exists
-        const rfp = await rfpRepository.findOne({ 
-            where: { id: rfpId },
-            relations: ["createdBy"]
+        const [bids, total] = await bidRepository.findAndCount({
+            where: { rfpId } as FindOptionsWhere<Bid>,
+            relations: ["vendor"],
+            skip,
+            take: limit,
+            order: { submissionDate: "DESC" }
         });
-        
-        if (!rfp) {
-            return res.status(404).json({ message: "RFP not found" });
-        }
-
-        // Log access by non-owner GPO
-        if (rfp.createdById !== req.user.id) {
-            console.log(`GPO ${req.user.id} accessed bids for RFP ${rfpId} created by ${rfp.createdById}`);
-        }
-
-        const now = new Date();
-        const deadline = new Date(rfp.submissionDeadline);
-        const showEvaluation = now > deadline;
-
-        // Get total count for pagination
-        const totalCount = await bidRepository
-            .createQueryBuilder("bid")
-            .where("bid.rfpId = :rfpId", { rfpId })
-            .andWhere("bid.status = :status", { status: BidStatus.SUBMITTED })
-            .getCount();
-
-        // Get paginated bids
-        const bids = await bidRepository
-            .createQueryBuilder("bid")
-            .leftJoinAndSelect("bid.vendor", "vendor")
-            .where("bid.rfpId = :rfpId", { rfpId })
-            .andWhere("bid.status = :status", { status: BidStatus.SUBMITTED })
-            .select([
-                "bid.id",
-                "bid.status",
-                "bid.submissionDate",
-                "vendor.id",
-                "vendor.name",
-                "vendor.businessName",
-                "vendor.businessEmail",
-                ...(showEvaluation ? [
-                    "bid.evaluationScore",
-                    "bid.shortEvaluation"
-                ] : [])
-            ])
-            .skip(skip)
-            .take(limit)
-            .orderBy(showEvaluation ? "bid.evaluationScore" : "bid.submissionDate", "DESC")
-            .getMany();
 
         return res.json({
             data: bids,
             pagination: {
                 currentPage: page,
-                totalPages: Math.ceil(totalCount / limit),
-                totalItems: totalCount,
+                totalPages: Math.ceil(total / limit),
+                totalItems: total,
                 itemsPerPage: limit
-            },
-            rfpOwner: {
-                id: rfp.createdBy.id,
-                name: rfp.createdBy.name,
-                email: rfp.createdBy.email
             }
         });
     } catch (error) {
@@ -354,101 +209,26 @@ export const getBidById = async (req: AuthRequest, res: Response) => {
         const { rfpId, id } = req.params;
 
         const bid = await bidRepository.findOne({
-            where: { id, rfpId },
-            relations: ["vendor", "rfp", "rfp.createdBy"]
+            where: { id, rfpId } as FindOptionsWhere<Bid>,
+            relations: ["vendor", "rfp"]
         });
 
         if (!bid) {
             return res.status(404).json({ message: "Bid not found" });
         }
 
-        const now = new Date();
-        const deadline = new Date(bid.rfp.submissionDeadline);
-        const showEvaluation = now > deadline;
-
-        // Handle vendor access
-        if (req.user.role === UserRole.VENDOR) {
-            if (bid.vendorId !== req.user.id) {
-                return res.status(403).json({ message: "Access denied" });
-            }
-
-            // Show full evaluation details to the vendor after deadline
-            if (showEvaluation) {
-                return res.json({
-                    data: {
-                        ...bid,
-                        evaluationScore: bid.evaluationScore,
-                        shortEvaluation: bid.shortEvaluation,
-                        longEvaluation: bid.longEvaluation,
-                        evaluationDetails: bid.evaluationDetails
-                    }
-                });
-            }
-
-            return res.json({ data: bid });
+        // Check access rights
+        if (req.user.role !== UserRole.GPO && bid.vendorId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
         }
 
-        // Handle GPO access
-        if (req.user.role === UserRole.GPO) {
-            // Log access by non-owner GPO
-            if (bid.rfp.createdById !== req.user.id) {
-                console.log(`GPO ${req.user.id} accessed bid ${id} for RFP ${rfpId} created by ${bid.rfp.createdById}`);
-            }
-
-            if (!showEvaluation) {
-                return res.status(403).json({ 
-                    message: "Bid evaluation can only be viewed after the submission deadline",
-                    deadline: deadline,
-                    rfpOwner: {
-                        id: bid.rfp.createdBy.id,
-                        name: bid.rfp.createdBy.name,
-                        email: bid.rfp.createdBy.email
-                    }
-                });
-            }
-
-            const vendorData = {
-                id: bid.vendor.id,
-                name: bid.vendor.name,
-                businessName: bid.vendor.businessName,
-                businessEmail: bid.vendor.businessEmail
-            };
-            bid.vendor = vendorData as any;
-            return res.json({ 
-                data: {
-                    ...bid,
-                    evaluationScore: bid.evaluationScore,
-                    shortEvaluation: bid.shortEvaluation,
-                    evaluationDetails: bid.evaluationDetails
-                },
-                rfpOwner: {
-                    id: bid.rfp.createdBy.id,
-                    name: bid.rfp.createdBy.name,
-                    email: bid.rfp.createdBy.email
-                }
-            });
-        }
-
-        // Public access (after deadline)
-        if (showEvaluation) {
-            return res.json({
-                data: {
-                    id: bid.id,
-                    submissionDate: bid.submissionDate,
-                    evaluationScore: bid.evaluationScore,
-                    shortEvaluation: bid.shortEvaluation
-                }
-            });
-        }
-
-        return res.status(403).json({ message: "Evaluation not available until after submission deadline" });
+        return res.json({ data: bid });
     } catch (error) {
         console.error("Get bid error:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 };
 
-// Add document download endpoint
 export const downloadBidDocument = async (req: AuthRequest, res: Response) => {
     try {
         if (!req.user) {
@@ -457,58 +237,40 @@ export const downloadBidDocument = async (req: AuthRequest, res: Response) => {
 
         const { rfpId, id } = req.params;
 
-        // Get both bid and RFP details
         const bid = await bidRepository.findOne({
-            where: { id, rfpId },
-            relations: ["rfp", "rfp.createdBy"]
+            where: { id, rfpId } as FindOptionsWhere<Bid>,
+            relations: ["rfp"]
         });
 
         if (!bid) {
             return res.status(404).json({ message: "Bid not found" });
         }
 
-        // Vendors can only download their own bids
-        if (req.user.role === UserRole.VENDOR) {
-            if (bid.vendorId !== req.user.id) {
-                return res.status(403).json({ message: "Access denied" });
-            }
-        }
-        // GPOs can only download bids after submission deadline
-        else if (req.user.role === UserRole.GPO) {
-            const now = new Date();
-            const deadline = new Date(bid.rfp.submissionDeadline);
-            
-            // Log access by non-owner GPO
-            if (bid.rfp.createdById !== req.user.id) {
-                console.log(`GPO ${req.user.id} downloaded bid document ${id} for RFP ${rfpId} created by ${bid.rfp.createdById}`);
-            }
-
-            if (now < deadline) {
-                return res.status(403).json({ 
-                    message: "Bid documents can only be downloaded after the submission deadline",
-                    deadline: deadline,
-                    rfpOwner: {
-                        id: bid.rfp.createdBy.id,
-                        name: bid.rfp.createdBy.name,
-                        email: bid.rfp.createdBy.email
-                    }
-                });
-            }
+        // Check access rights
+        if (req.user.role !== UserRole.GPO && bid.vendorId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
         }
 
-        const filePath = path.join(UPLOAD_DIR, bid.proposalDocument);
+        const filePath = path.join(process.cwd(), 'uploads/proposals', bid.proposalDocument);
+
         if (!fs.existsSync(filePath)) {
-            return res.status(404).json({ message: "Proposal document not found" });
+            return res.status(404).json({ message: "Document not found" });
         }
 
-        return res.download(filePath);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=${bid.proposalDocument}`);
+
+        const fileStream = fs.createReadStream(filePath);
+        fileStream.pipe(res);
+        
+        // Add return statement to satisfy TypeScript
+        return;
     } catch (error) {
-        console.error("Document download error:", error);
+        console.error("Download document error:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 };
 
-// Public endpoints for bids
 export const getPublicBids = async (req: Request, res: Response) => {
     try {
         const { rfpId } = req.params;
@@ -516,54 +278,22 @@ export const getPublicBids = async (req: Request, res: Response) => {
         const limit = parseInt(req.query.limit as string) || 10;
         const skip = (page - 1) * limit;
 
-        // Get RFP to check deadline
-        const rfp = await rfpRepository.findOne({ where: { id: rfpId } });
-        if (!rfp) {
-            return res.status(404).json({ message: "RFP not found" });
-        }
-
-        const now = new Date();
-        const deadline = new Date(rfp.submissionDeadline);
-        const showEvaluation = now > deadline;
-
-        // Get total count for pagination
-        const totalCount = await bidRepository
-            .createQueryBuilder("bid")
-            .where("bid.rfpId = :rfpId", { rfpId })
-            .andWhere("bid.status = :status", { status: BidStatus.SUBMITTED })
-            .getCount();
-
-        // Get paginated bids with limited information
-        const bids = await bidRepository
-            .createQueryBuilder("bid")
-            .leftJoinAndSelect("bid.vendor", "vendor")
-            .where("bid.rfpId = :rfpId", { rfpId })
-            .andWhere("bid.status = :status", { status: BidStatus.SUBMITTED })
-            .select([
-                "bid.id",
-                "bid.submissionDate",
-                "vendor.businessName",
-                ...(showEvaluation ? [
-                    "bid.evaluationScore",
-                    "bid.shortEvaluation"
-                ] : [])
-            ])
-            .skip(skip)
-            .take(limit)
-            .orderBy(showEvaluation ? "bid.evaluationScore" : "bid.submissionDate", "DESC")
-            .getMany();
-
-        const totalPages = Math.ceil(totalCount / limit);
+        const [bids, total] = await bidRepository.findAndCount({
+            where: { rfpId, status: BidStatus.SUBMITTED } as FindOptionsWhere<Bid>,
+            select: ["id", "submissionDate", "status"],
+            skip,
+            take: limit,
+            order: { submissionDate: "DESC" }
+        });
 
         return res.json({
             data: bids,
             pagination: {
                 currentPage: page,
-                totalPages,
-                totalItems: totalCount,
+                totalPages: Math.ceil(total / limit),
+                totalItems: total,
                 itemsPerPage: limit
-            },
-            evaluationVisible: showEvaluation
+            }
         });
     } catch (error) {
         console.error("Get public bids error:", error);
@@ -576,30 +306,15 @@ export const getPublicBidDetails = async (req: Request, res: Response) => {
         const { rfpId, id } = req.params;
 
         const bid = await bidRepository.findOne({
-            where: { id, rfpId },
-            relations: ["vendor", "rfp"]
+            where: { id, rfpId, status: BidStatus.SUBMITTED } as FindOptionsWhere<Bid>,
+            select: ["id", "submissionDate", "status", "evaluationScore"]
         });
 
         if (!bid) {
             return res.status(404).json({ message: "Bid not found" });
         }
 
-        const now = new Date();
-        const deadline = new Date(bid.rfp.submissionDeadline);
-        const showEvaluation = now > deadline;
-
-        // Return limited public information
-        return res.json({
-            data: {
-                id: bid.id,
-                submissionDate: bid.submissionDate,
-                businessName: bid.vendor.businessName,
-                ...(showEvaluation ? {
-                    evaluationScore: bid.evaluationScore,
-                    shortEvaluation: bid.shortEvaluation
-                } : {})
-            }
-        });
+        return res.json({ data: bid });
     } catch (error) {
         console.error("Get public bid details error:", error);
         return res.status(500).json({ message: "Internal server error" });

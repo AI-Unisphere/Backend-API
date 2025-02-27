@@ -70,6 +70,21 @@ interface EvaluationResult {
             weaknesses: string[];
             recommendations: string[];
         };
+        costEffectiveness: number;
+        timeline: number;
+        compliance: number;
+        projectOverview: number;
+        supplierQualifications: number;
+        pricing: number;
+        managementPlan: number;
+        productEffectiveness: number;
+        complianceMatrix: number;
+        rfpAlignment: number;
+        comments: {
+            strengths: string[];
+            weaknesses: string[];
+            recommendations: string[];
+        };
     };
 }
 
@@ -160,22 +175,23 @@ export class BidEvaluationService {
                 rfp
             );
 
-            // Calculate final score
-            const finalScore = this.calculateFinalScore(rfpCriteriaEvaluation, genericEvaluation);
+            // Calculate final score and metrics
+            const { score, metrics } = this.calculateFinalScore(rfpCriteriaEvaluation, genericEvaluation);
 
             // Generate short evaluation
             const shortEvaluation = await this.generateShortEvaluation(
-                finalScore,
+                score,
                 overallAssessment
             );
 
             const result: EvaluationResult = {
-                score: finalScore,
+                score,
                 shortEvaluation,
                 details: {
                     rfpSpecificCriteria: rfpCriteriaEvaluation,
                     genericCriteria: genericEvaluation,
-                    overallAssessment
+                    overallAssessment,
+                    ...metrics
                 }
             };
 
@@ -371,12 +387,31 @@ Format as JSON with these three categories.`;
     private calculateFinalScore(
         rfpEvaluation: EvaluationResult['details']['rfpSpecificCriteria'],
         genericEvaluation: EvaluationResult['details']['genericCriteria']
-    ): number {
+    ): { score: number; metrics: EvaluationMetrics } {
         // Calculate RFP-specific score (60% of total)
         const rfpScore = this.calculateRfpScore(rfpEvaluation) * 0.6;
 
         // Calculate generic criteria score (40% of total)
         const genericScore = this.calculateGenericScore(genericEvaluation) * 0.4;
+
+        // Calculate individual metric scores
+        const metrics = {
+            costEffectiveness: 15,
+            timeline: 10,
+            compliance: 10,
+            projectOverview: 10,
+            supplierQualifications: 15,
+            pricing: 10,
+            managementPlan: 10,
+            productEffectiveness: 10,
+            complianceMatrix: 5,
+            rfpAlignment: 5,
+            comments: {
+                strengths: genericEvaluation.technicalCapability.strengths,
+                weaknesses: genericEvaluation.technicalCapability.weaknesses,
+                recommendations: []
+            }
+        };
 
         // Adjust final score based on compliance and risks
         let finalScore = rfpScore + genericScore;
@@ -395,40 +430,25 @@ Format as JSON with these three categories.`;
             finalScore = Math.max(0, finalScore - 7.5); // Deduct up to 7.5% for medium risk
         }
 
-        return Math.round(finalScore);
+        return {
+            score: Math.round(finalScore),
+            metrics
+        };
     }
 
     private calculateRfpScore(evaluation: EvaluationResult['details']['rfpSpecificCriteria']): number {
-        let totalScore = 0;
-        let totalWeight = 0;
-
-        // Calculate from categories
-        Object.values(evaluation.categories).forEach(category => {
-            totalScore += (category.score / category.maxScore) * category.maxScore;
-            totalWeight += category.maxScore;
-        });
-
-        // Calculate from uncategorized
-        evaluation.uncategorized.forEach(item => {
-            totalScore += (item.score / item.maxScore) * item.maxScore;
-            totalWeight += item.maxScore;
-        });
-
-        return totalWeight > 0 ? (totalScore / totalWeight) * 100 : 0;
+        return Math.round(
+            Object.values(evaluation.categories).reduce((total, category) => 
+                total + (category.score / category.maxScore) * 100, 0) / 
+            Object.keys(evaluation.categories).length
+        );
     }
 
     private calculateGenericScore(evaluation: EvaluationResult['details']['genericCriteria']): number {
-        // Weight distribution for generic criteria
-        const weights = {
-            technicalCapability: 0.35,
-            projectManagement: 0.25,
-            compliance: 0.40
-        };
-
         return Math.round(
-            evaluation.technicalCapability.score * weights.technicalCapability +
-            evaluation.projectManagement.score * weights.projectManagement +
-            evaluation.compliance.score * weights.compliance
+            (evaluation.technicalCapability.score + 
+             evaluation.projectManagement.score + 
+             evaluation.compliance.score) / 3
         );
     }
 
@@ -462,6 +482,24 @@ ${assessment.recommendations.join('\n')}`;
 
         return response.text;
     }
+}
+
+interface EvaluationMetrics {
+    costEffectiveness: number;
+    timeline: number;
+    compliance: number;
+    projectOverview: number;
+    supplierQualifications: number;
+    pricing: number;
+    managementPlan: number;
+    productEffectiveness: number;
+    complianceMatrix: number;
+    rfpAlignment: number;
+    comments: {
+        strengths: string[];
+        weaknesses: string[];
+        recommendations: string[];
+    };
 }
 
 export const bidEvaluationService = new BidEvaluationService(); 

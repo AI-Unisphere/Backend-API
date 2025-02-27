@@ -28,11 +28,6 @@ interface RfpInput {
     specialInstructions?: string;
 }
 
-interface QueryContext {
-    aspect: keyof DynamicRfpInfo;
-    query: string;
-}
-
 interface DynamicRfpInfo {
     title?: string;
     shortDescription?: string;

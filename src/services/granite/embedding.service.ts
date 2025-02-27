@@ -8,12 +8,6 @@ export interface ChunkMetadata {
     confidence?: number;
 }
 
-interface ClassificationResponse {
-    sequence: string;
-    labels: string[];
-    scores: number[];
-}
-
 export class GraniteEmbeddingService {
     private hf: HfInference;
     private readonly config = graniteConfig.embeddingModel;

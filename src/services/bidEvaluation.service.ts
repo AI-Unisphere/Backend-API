@@ -11,6 +11,7 @@ import { encode, decode } from 'gpt-tokenizer';
 interface EvaluationResult {
     score: number;
     shortEvaluation: string;
+    longEvaluation: string;
     details: {
         rfpSpecificCriteria: {
             categories: Record<string, {
@@ -187,11 +188,26 @@ export class BidEvaluationService {
             const result: EvaluationResult = {
                 score,
                 shortEvaluation,
+                longEvaluation: '',
                 details: {
                     rfpSpecificCriteria: rfpCriteriaEvaluation,
                     genericCriteria: genericEvaluation,
                     overallAssessment,
-                    ...metrics
+                    costEffectiveness: metrics.costEffectiveness,
+                    timeline: metrics.timeline,
+                    compliance: metrics.compliance,
+                    projectOverview: metrics.projectOverview,
+                    supplierQualifications: metrics.supplierQualifications,
+                    pricing: metrics.pricing,
+                    managementPlan: metrics.managementPlan,
+                    productEffectiveness: metrics.productEffectiveness,
+                    complianceMatrix: metrics.complianceMatrix,
+                    rfpAlignment: metrics.rfpAlignment,
+                    comments: {
+                        strengths: genericEvaluation.technicalCapability.strengths,
+                        weaknesses: genericEvaluation.technicalCapability.weaknesses,
+                        recommendations: overallAssessment.recommendations
+                    }
                 }
             };
 
@@ -407,9 +423,16 @@ Format as JSON with these three categories.`;
             complianceMatrix: 5,
             rfpAlignment: 5,
             comments: {
-                strengths: genericEvaluation.technicalCapability.strengths,
-                weaknesses: genericEvaluation.technicalCapability.weaknesses,
-                recommendations: []
+                costEffectiveness: genericEvaluation.technicalCapability.strengths,
+                timeline: [],
+                compliance: [],
+                projectOverview: [],
+                supplierQualifications: [],
+                pricing: [],
+                managementPlan: [],
+                productEffectiveness: [],
+                complianceMatrix: [],
+                rfpAlignment: []
             }
         };
 
@@ -496,9 +519,16 @@ interface EvaluationMetrics {
     complianceMatrix: number;
     rfpAlignment: number;
     comments: {
-        strengths: string[];
-        weaknesses: string[];
-        recommendations: string[];
+        costEffectiveness?: string[];
+        timeline?: string[];
+        compliance?: string[];
+        projectOverview?: string[];
+        supplierQualifications?: string[];
+        pricing?: string[];
+        managementPlan?: string[];
+        productEffectiveness?: string[];
+        complianceMatrix?: string[];
+        rfpAlignment?: string[];
     };
 }
 

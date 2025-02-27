@@ -534,4 +534,7 @@ export const extractRfpInfo = async (req: AuthRequest, res: Response) => {
             return res.status(500).json({ message: "Failed to extract RFP information" });
         }
     });
+    
+    // Add return statement for the outer function
+    return;
 };

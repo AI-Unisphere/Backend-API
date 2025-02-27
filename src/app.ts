@@ -23,8 +23,8 @@ app.use('/api/bids', bidRoutes);
 // Other routes will be added here
 
 // Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error(err.stack);
+app.use((_err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error(_err.stack);
     res.status(500).json({ message: 'Internal server error' });
 });
 

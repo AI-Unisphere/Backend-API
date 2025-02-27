@@ -26,7 +26,7 @@ export const graniteConfig: GraniteConfig = {
     embeddingModel: {
         name: 'ibm-granite/granite-embedding-30m-english',
         maxInputLength: 512,  // Maximum sequence length
-        outputDimensions: 768, // Embedding dimensions
+        outputDimensions: 110, // Updated to match actual dimensions
         batchSize: 32  // Number of texts to process in parallel
     },
     llmModel: {

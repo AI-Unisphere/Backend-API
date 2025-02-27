@@ -253,30 +253,79 @@ Extract the following in JSON format:
     },
     "budget": number,
     "submissionDeadline": "YYYY-MM-DD"
-}`;
+}
 
-        const response = await this.llm.generateResponse(
-            basicInfoPrompt,
-            "You are an expert in analyzing RFP documents. Extract precise information.",
-            { responseFormat: "json_object" }
-        );
+IMPORTANT: Your response must be valid JSON. Use null for missing values.`;
 
-        if (response.error) {
-            throw new Error(`Failed to extract basic information: ${response.error}`);
+        try {
+            const response = await this.llm.generateResponse(
+                basicInfoPrompt,
+                "You are an expert in analyzing RFP documents. Extract precise information in valid JSON format only.",
+                { responseFormat: "json_object" }
+            );
+
+            if (response.error) {
+                console.warn(`Failed to extract basic information: ${response.error}`);
+                return {
+                    title: "Unknown Title",
+                    shortDescription: "No description available"
+                };
+            }
+
+            try {
+                const basicInfo = JSON.parse(response.text);
+                
+                // Convert dates to Date objects if they exist
+                if (basicInfo.timeline) {
+                    if (basicInfo.timeline.startDate && basicInfo.timeline.startDate !== "YYYY-MM-DD") {
+                        try {
+                            basicInfo.timeline.startDate = new Date(basicInfo.timeline.startDate);
+                        } catch (e) {
+                            console.warn("Invalid startDate format:", basicInfo.timeline.startDate);
+                            basicInfo.timeline.startDate = null;
+                        }
+                    } else {
+                        basicInfo.timeline.startDate = null;
+                    }
+                    
+                    if (basicInfo.timeline.endDate && basicInfo.timeline.endDate !== "YYYY-MM-DD") {
+                        try {
+                            basicInfo.timeline.endDate = new Date(basicInfo.timeline.endDate);
+                        } catch (e) {
+                            console.warn("Invalid endDate format:", basicInfo.timeline.endDate);
+                            basicInfo.timeline.endDate = null;
+                        }
+                    } else {
+                        basicInfo.timeline.endDate = null;
+                    }
+                }
+                
+                if (basicInfo.submissionDeadline && basicInfo.submissionDeadline !== "YYYY-MM-DD") {
+                    try {
+                        basicInfo.submissionDeadline = new Date(basicInfo.submissionDeadline);
+                    } catch (e) {
+                        console.warn("Invalid submissionDeadline format:", basicInfo.submissionDeadline);
+                        basicInfo.submissionDeadline = null;
+                    }
+                } else {
+                    basicInfo.submissionDeadline = null;
+                }
+
+                return basicInfo;
+            } catch (error) {
+                console.error('Failed to parse basic info JSON:', error);
+                return {
+                    title: "Unknown Title",
+                    shortDescription: "No description available"
+                };
+            }
+        } catch (error) {
+            console.error('Error extracting basic info:', error);
+            return {
+                title: "Unknown Title",
+                shortDescription: "No description available"
+            };
         }
-
-        const basicInfo = JSON.parse(response.text);
-        
-        // Convert dates to Date objects
-        if (basicInfo.timeline) {
-            basicInfo.timeline.startDate = basicInfo.timeline.startDate ? new Date(basicInfo.timeline.startDate) : undefined;
-            basicInfo.timeline.endDate = basicInfo.timeline.endDate ? new Date(basicInfo.timeline.endDate) : undefined;
-        }
-        if (basicInfo.submissionDeadline) {
-            basicInfo.submissionDeadline = new Date(basicInfo.submissionDeadline);
-        }
-
-        return basicInfo;
     }
 
     private async extractRequirements(classifiedChunks: ChunkMetadata[]): Promise<DynamicRfpInfo['requirements']> {
@@ -320,26 +369,41 @@ Extract and categorize requirements in JSON format:
     "uncategorized": ["requirement5", "requirement6"]
 }
 
-Common categories include: Technical, Functional, Management, Legal, Compliance, etc.`;
-
-        const response = await this.llm.generateResponse(
-            requirementsPrompt,
-            "You are an expert in analyzing RFP documents. Extract precise requirements.",
-            { responseFormat: "json_object" }
-        );
-
-        if (response.error) {
-            console.warn(`Failed to extract requirements: ${response.error}`);
-            return {
-                categories: {},
-                uncategorized: []
-            };
-        }
+Common categories include: Technical, Functional, Management, Legal, Compliance, etc.
+IMPORTANT: Your response must be valid JSON.`;
 
         try {
-            return JSON.parse(response.text);
+            const response = await this.llm.generateResponse(
+                requirementsPrompt,
+                "You are an expert in analyzing RFP documents. Extract precise requirements in valid JSON format only.",
+                { responseFormat: "json_object" }
+            );
+
+            if (response.error) {
+                console.warn(`Failed to extract requirements: ${response.error}`);
+                return {
+                    categories: {},
+                    uncategorized: []
+                };
+            }
+
+            try {
+                const requirements = JSON.parse(response.text);
+                
+                // Validate structure
+                if (!requirements.categories) requirements.categories = {};
+                if (!requirements.uncategorized) requirements.uncategorized = [];
+                
+                return requirements;
+            } catch (error) {
+                console.warn('Failed to parse requirements JSON:', error);
+                return {
+                    categories: {},
+                    uncategorized: []
+                };
+            }
         } catch (error) {
-            console.warn('Failed to parse requirements JSON:', error);
+            console.warn('Error extracting requirements:', error);
             return {
                 categories: {},
                 uncategorized: []
@@ -396,26 +460,41 @@ Extract evaluation metrics in JSON format:
     ]
 }
 
-The numbers represent weightage percentages. Total should add up to 100%.`;
-
-        const response = await this.llm.generateResponse(
-            metricsPrompt,
-            "You are an expert in analyzing RFP documents. Extract precise evaluation metrics.",
-            { responseFormat: "json_object" }
-        );
-
-        if (response.error) {
-            console.warn(`Failed to extract evaluation metrics: ${response.error}`);
-            return {
-                categories: {},
-                uncategorized: []
-            };
-        }
+The numbers represent weightage percentages. Total should add up to 100%.
+IMPORTANT: Your response must be valid JSON.`;
 
         try {
-            return JSON.parse(response.text);
+            const response = await this.llm.generateResponse(
+                metricsPrompt,
+                "You are an expert in analyzing RFP documents. Extract precise evaluation metrics in valid JSON format only.",
+                { responseFormat: "json_object" }
+            );
+
+            if (response.error) {
+                console.warn(`Failed to extract evaluation metrics: ${response.error}`);
+                return {
+                    categories: {},
+                    uncategorized: []
+                };
+            }
+
+            try {
+                const metrics = JSON.parse(response.text);
+                
+                // Validate structure
+                if (!metrics.categories) metrics.categories = {};
+                if (!metrics.uncategorized) metrics.uncategorized = [];
+                
+                return metrics;
+            } catch (error) {
+                console.warn('Failed to parse evaluation metrics JSON:', error);
+                return {
+                    categories: {},
+                    uncategorized: []
+                };
+            }
         } catch (error) {
-            console.warn('Failed to parse evaluation metrics JSON:', error);
+            console.warn('Error extracting evaluation metrics:', error);
             return {
                 categories: {},
                 uncategorized: []

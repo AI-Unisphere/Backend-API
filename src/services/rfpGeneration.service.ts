@@ -216,11 +216,32 @@ Please generate a comprehensive, well-structured RFP description that:
     }
 
     private async extractBasicInfo(classifiedChunks: ChunkMetadata[]): Promise<Partial<DynamicRfpInfo>> {
+        // Filter chunks to only include the most relevant ones for basic info
+        const relevantCategories = [
+            "Background Information", 
+            "Timeline", 
+            "Budget Information", 
+            "Submission Guidelines"
+        ];
+        
+        // Get chunks from relevant categories + first chunk (often contains title/overview)
+        const relevantChunks = classifiedChunks.filter(chunk => 
+            chunk.category && relevantCategories.includes(chunk.category)
+        );
+        
+        // Always include the first chunk as it often contains the title
+        if (classifiedChunks.length > 0 && !relevantChunks.includes(classifiedChunks[0])) {
+            relevantChunks.unshift(classifiedChunks[0]);
+        }
+        
+        // Limit to 5 most relevant chunks to avoid token limits
+        const limitedChunks = relevantChunks.slice(0, 5);
+        
         const basicInfoPrompt = `
 Analyze these document sections to extract basic RFP information.
 
 Relevant sections:
-${classifiedChunks.map(chunk => chunk.content).join('\n\n')}
+${limitedChunks.map(chunk => chunk.content).join('\n\n')}
 
 Extract the following in JSON format:
 {
@@ -259,82 +280,147 @@ Extract the following in JSON format:
     }
 
     private async extractRequirements(classifiedChunks: ChunkMetadata[]): Promise<DynamicRfpInfo['requirements']> {
-        // Filter chunks related to requirements
-        const requirementChunks = classifiedChunks.filter(chunk => 
-            chunk.category?.includes('Requirements') || 
-            chunk.category?.includes('Technical Specifications')
+        // Filter chunks to only include the most relevant ones for requirements
+        const relevantCategories = [
+            "Requirements", 
+            "Technical Specifications", 
+            "Technical Requirements", 
+            "Management Requirements",
+            "Legal Requirements"
+        ];
+        
+        // Get chunks from relevant categories
+        const relevantChunks = classifiedChunks.filter(chunk => 
+            chunk.category && relevantCategories.includes(chunk.category)
         );
-
-        if (requirementChunks.length === 0) {
-            return { categories: {}, uncategorized: [] };
+        
+        // Limit to 5 most relevant chunks to avoid token limits
+        const limitedChunks = relevantChunks.slice(0, 5);
+        
+        // If no relevant chunks found, return empty structure
+        if (limitedChunks.length === 0) {
+            return {
+                categories: {},
+                uncategorized: []
+            };
         }
 
         const requirementsPrompt = `
-Analyze these requirement sections and extract all requirements dynamically.
-Group requirements into categories if they exist, otherwise list them as uncategorized.
+Analyze these document sections to extract RFP requirements.
 
 Relevant sections:
-${requirementChunks.map(chunk => chunk.content).join('\n\n')}
+${limitedChunks.map(chunk => chunk.content).join('\n\n')}
 
-Extract requirements in JSON format:
+Extract and categorize requirements in JSON format:
 {
     "categories": {
-        "category_name": ["requirement1", "requirement2"]
+        "category1": ["requirement1", "requirement2"],
+        "category2": ["requirement3", "requirement4"]
     },
-    "uncategorized": ["requirement1", "requirement2"]
-}`;
+    "uncategorized": ["requirement5", "requirement6"]
+}
+
+Common categories include: Technical, Functional, Management, Legal, Compliance, etc.`;
 
         const response = await this.llm.generateResponse(
             requirementsPrompt,
-            "You are an expert in analyzing RFP requirements. Group requirements logically.",
+            "You are an expert in analyzing RFP documents. Extract precise requirements.",
             { responseFormat: "json_object" }
         );
 
         if (response.error) {
-            throw new Error(`Failed to extract requirements: ${response.error}`);
+            console.warn(`Failed to extract requirements: ${response.error}`);
+            return {
+                categories: {},
+                uncategorized: []
+            };
         }
 
-        return JSON.parse(response.text);
+        try {
+            return JSON.parse(response.text);
+        } catch (error) {
+            console.warn('Failed to parse requirements JSON:', error);
+            return {
+                categories: {},
+                uncategorized: []
+            };
+        }
     }
 
     private async extractEvaluationMetrics(classifiedChunks: ChunkMetadata[]): Promise<DynamicRfpInfo['evaluationMetrics']> {
-        // Filter chunks related to evaluation
-        const evaluationChunks = classifiedChunks.filter(chunk => 
-            chunk.category?.includes('Evaluation')
+        // Filter chunks to only include the most relevant ones for evaluation metrics
+        const relevantCategories = [
+            "Evaluation Criteria"
+        ];
+        
+        // Get chunks from relevant categories
+        const relevantChunks = classifiedChunks.filter(chunk => 
+            chunk.category && relevantCategories.includes(chunk.category)
         );
-
-        if (evaluationChunks.length === 0) {
-            return { categories: {}, uncategorized: [] };
+        
+        // Limit to 3 most relevant chunks to avoid token limits
+        const limitedChunks = relevantChunks.slice(0, 3);
+        
+        // If no relevant chunks found, return empty structure
+        if (limitedChunks.length === 0) {
+            return {
+                categories: {},
+                uncategorized: []
+            };
         }
 
-        const evaluationPrompt = `
-Analyze these sections to extract evaluation metrics and their weights.
-Group metrics into categories if they exist, otherwise list them as uncategorized.
+        const metricsPrompt = `
+Analyze these document sections to extract RFP evaluation metrics.
 
 Relevant sections:
-${evaluationChunks.map(chunk => chunk.content).join('\n\n')}
+${limitedChunks.map(chunk => chunk.content).join('\n\n')}
 
-Extract metrics in JSON format:
+Extract evaluation metrics in JSON format:
 {
     "categories": {
-        "category_name": {
-            "metric_name": weight_number
+        "category1": {
+            "metric1": 30,
+            "metric2": 20
+        },
+        "category2": {
+            "metric3": 25,
+            "metric4": 25
         }
     },
-    "uncategorized": ["metric_description (weight%)"]
-}`;
+    "uncategorized": [
+        {
+            "name": "metric5",
+            "weightage": 10,
+            "description": "Optional description"
+        }
+    ]
+}
+
+The numbers represent weightage percentages. Total should add up to 100%.`;
 
         const response = await this.llm.generateResponse(
-            evaluationPrompt,
-            "You are an expert in analyzing RFP evaluation criteria. Extract precise metrics and weights.",
+            metricsPrompt,
+            "You are an expert in analyzing RFP documents. Extract precise evaluation metrics.",
             { responseFormat: "json_object" }
         );
 
         if (response.error) {
-            throw new Error(`Failed to extract evaluation metrics: ${response.error}`);
+            console.warn(`Failed to extract evaluation metrics: ${response.error}`);
+            return {
+                categories: {},
+                uncategorized: []
+            };
         }
 
-        return JSON.parse(response.text);
+        try {
+            return JSON.parse(response.text);
+        } catch (error) {
+            console.warn('Failed to parse evaluation metrics JSON:', error);
+            return {
+                categories: {},
+                uncategorized: []
+            };
+        }
     }
 }
 

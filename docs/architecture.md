@@ -21,7 +21,7 @@ UniSphere is a decentralized procurement platform that combines blockchain techn
   - Bid evaluation (`evaluationTxUrl`)
 
 ### 2. Large Language Models (LLM)
-- **Model**: IBM Granite-13B-Instruct
+- **Model**: IBM Granite-3.1-Instruct
 - **Key Features**:
   - Open-source foundation model
   - JSON response formatting

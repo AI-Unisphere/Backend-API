@@ -17,7 +17,8 @@
     "data:export": "ts-node scripts/export-data.ts",
     "data:import": "ts-node scripts/import-data.ts",
     "docker:data:export": "docker-compose exec app npm run data:export",
-    "docker:data:import": "docker-compose exec app npm run data:import"
+    "docker:data:import": "docker-compose exec app npm run data:import",
+    "swagger:generate": "ts-node -r tsconfig-paths/register src/scripts/generate-swagger.ts"
   },
   "dependencies": {
     "@huggingface/inference": "^2.6.4",

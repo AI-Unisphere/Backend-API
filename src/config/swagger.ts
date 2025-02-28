@@ -87,7 +87,8 @@ const options: swaggerJsdoc.Options = {
             { name: 'RFPs', description: 'RFP management endpoints' },
             { name: 'Bids', description: 'Bid management endpoints' },
             { name: 'Categories', description: 'Category management endpoints' },
-            { name: 'Users', description: 'User management endpoints' }
+            { name: 'Users', description: 'User management endpoints' },
+            { name: 'Health', description: 'Health check endpoints' }
         ]
     },
     apis: ['./src/routes/*.ts', './src/controllers/*.ts']

@@ -9,7 +9,6 @@ import { blockchainService } from "../services/blockchain.service";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import pdfParse from "pdf-parse";
 
 const rfpRepository = AppDataSource.getRepository(Rfp);
 const categoryRepository = AppDataSource.getRepository(RfpCategory);

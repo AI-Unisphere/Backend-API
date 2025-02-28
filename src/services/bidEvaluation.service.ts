@@ -143,7 +143,16 @@ export class BidEvaluationService {
 
             // Split and classify chunks
             const chunks = this.chunkText(proposalContent);
-            const classifiedChunks = await this.embeddings.classifyChunks(chunks);
+            // Convert string chunks to ChunkMetadata objects
+            const chunkMetadata: ChunkMetadata[] = chunks.map(content => ({ content }));
+            const classifiedChunks = await this.embeddings.classifyChunks(chunkMetadata, [
+                "Technical Requirements",
+                "Project Management",
+                "Budget",
+                "Timeline",
+                "Compliance",
+                "Qualifications"
+            ]);
 
             // Create embeddings for classified chunks
             const embeddings = await this.embeddings.createEmbeddings(
@@ -157,8 +166,8 @@ export class BidEvaluationService {
                     content: classifiedChunks[i].content,
                     embedding: embeddings[i],
                     metadata: {
-                        category: classifiedChunks[i].category,
-                        confidence: classifiedChunks[i].confidence
+                        category: classifiedChunks[i].category || undefined,
+                        confidence: classifiedChunks[i].similarity
                     }
                 });
             }

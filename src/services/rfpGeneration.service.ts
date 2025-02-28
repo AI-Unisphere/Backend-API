@@ -48,23 +48,21 @@ export interface RfpDescriptionInput {
 }
 
 export class RfpGenerationService {
-    // Define categories for document classification
     private readonly categories = [
-        "Requirements",
-        "Technical Specifications",
-        "Pricing Details",
         "Technical Requirements",
-        "Management Requirements",
+        "Functional Requirements",
+        "Project Timeline",
+        "Budget",
         "Evaluation Criteria",
-        "Budget Information",
-        "Timeline",
         "Submission Guidelines",
         "Legal Requirements",
-        "Background Information"
+        "Vendor Qualifications",
+        "Special Instructions",
+        "Background Information",
+        "Scope of Work",
+        "Deliverables"
     ];
-
-    private readonly MAX_SECTION_TOKENS = 1000;
-    private readonly CHUNK_OVERLAP = 100; // Token overlap between chunks
+    
     private embedding: GraniteEmbeddingService;
     private llm: GraniteLLMService;
 

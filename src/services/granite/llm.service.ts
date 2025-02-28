@@ -7,6 +7,8 @@ export class GraniteLLMService {
     private hf: HfInference;
     private readonly config = graniteConfig.llmModel;
     private readonly MAX_INPUT_TOKENS = 3500; // Reserve space for system prompt and output tokens
+    private readonly MAX_RETRIES = 3;
+    private readonly INITIAL_RETRY_DELAY = 1000; // 1 second
 
     constructor() {
         if (!graniteConfig.huggingface.apiKey) {
@@ -66,17 +68,23 @@ export class GraniteLLMService {
         }
     }
 
-    private async generateCompletion(
+    // Helper method to sleep
+    private async sleep(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    private async generateCompletionWithRetry(
         prompt: string,
         systemPrompt: string,
-        options: GenerationOptions = {}
+        options: GenerationOptions = {},
+        retryCount = 0
     ): Promise<string> {
-        // Truncate prompt if needed
-        const truncatedPrompt = this.truncateToTokenLimit(prompt);
-        const formattedPrompt = this.formatPrompt(truncatedPrompt, systemPrompt);
-        
         try {
-            const response = await this.hf.textGeneration({
+            // Truncate prompt if needed
+            const truncatedPrompt = this.truncateToTokenLimit(prompt);
+            const formattedPrompt = this.formatPrompt(truncatedPrompt, systemPrompt);
+            
+            return await this.hf.textGeneration({
                 model: this.config.name,
                 inputs: formattedPrompt,
                 parameters: {
@@ -85,13 +93,32 @@ export class GraniteLLMService {
                     top_p: this.config.topP,
                     return_full_text: false
                 }
-            });
-
-            return response.generated_text;
+            }).then(response => response.generated_text);
         } catch (error) {
-            console.error('Error generating completion:', error);
-            throw new Error('Failed to generate completion');
+            if (retryCount < this.MAX_RETRIES) {
+                // Calculate exponential backoff delay
+                const delay = this.INITIAL_RETRY_DELAY * Math.pow(2, retryCount);
+                console.warn(`API call failed, retrying in ${delay}ms (attempt ${retryCount + 1}/${this.MAX_RETRIES})`, error);
+                
+                // Wait before retrying
+                await this.sleep(delay);
+                
+                // Retry with incremented counter
+                return this.generateCompletionWithRetry(prompt, systemPrompt, options, retryCount + 1);
+            }
+            
+            // If we've exhausted all retries, throw the error
+            console.error('Error generating completion after all retries:', error);
+            throw new Error('Failed to generate completion after multiple attempts');
         }
+    }
+
+    private async generateCompletion(
+        prompt: string,
+        systemPrompt: string,
+        options: GenerationOptions = {}
+    ): Promise<string> {
+        return this.generateCompletionWithRetry(prompt, systemPrompt, options);
     }
 
     async generateResponse(
@@ -154,4 +181,4 @@ export class GraniteLLMService {
             };
         }
     }
-} 
+}

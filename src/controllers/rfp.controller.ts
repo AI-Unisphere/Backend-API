@@ -492,12 +492,8 @@ export const extractRfpInfo = async (req: AuthRequest, res: Response) => {
         }
 
         try {
-            // Extract text from PDF
-            const dataBuffer = fs.readFileSync(req.file.path);
-            const pdfData = await pdfParse(dataBuffer);
-
-            // Extract information using RFP generation service
-            const extractedInfo = await rfpGenerationService.extractRfpInfo(pdfData.text);
+            // Extract information using RFP generation service with file path
+            const extractedInfo = await rfpGenerationService.extractRfpInfo(req.file.path);
 
             // Clean up uploaded file
             fs.unlinkSync(req.file.path);

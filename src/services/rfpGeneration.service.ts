@@ -1,217 +1,197 @@
 import { GraniteEmbeddingService, ChunkMetadata } from './granite/embedding.service';
 import { GraniteLLMService } from './granite/llm.service';
-import { VectorStore } from './vectorStore.service';
-import { encode, decode } from 'gpt-tokenizer';
+import * as fs from 'fs';
+import * as path from 'path';
+import pdfParse from 'pdf-parse';
 
-interface RfpInput {
+// Define the structure for RFP information
+export interface DynamicRfpInfo {
     title: string;
     shortDescription: string;
-    timeline: {
-        startDate: string;
-        endDate: string;
+    timeline?: {
+        startDate?: Date | null;
+        endDate?: Date | null;
     };
-    budget: number;
-    submissionDeadline: string;
-    categoryId: string;
-    requirements?: {
-        categories: Record<string, string[]>;
+    budget?: number | null;
+    submissionDeadline?: Date | null;
+    requirements: {
+        categories: { [category: string]: string[] };
         uncategorized: string[];
     };
-    evaluationMetrics?: {
-        categories: Record<string, Record<string, number>>;
-        uncategorized: Array<{
-            name: string;
-            weightage: number;
-            description?: string;
-        }>;
+    evaluationMetrics: {
+        categories: { [category: string]: { [metric: string]: number } };
+        uncategorized: { name: string; weightage: number; description?: string }[];
     };
-    specialInstructions?: string;
+    specialInstructions?: string | null;
 }
 
-interface DynamicRfpInfo {
-    title?: string;
-    shortDescription?: string;
-    timeline?: {
-        startDate?: string;
-        endDate?: string;
-    };
+// Input for RFP generation
+export interface RfpInput {
+    title: string;
+    description: string;
+    industry: string;
     budget?: number;
-    submissionDeadline?: string;
-    requirements?: {
-        categories: Record<string, string[]>;
-        uncategorized: string[];
-    };
-    evaluationMetrics?: {
-        categories: Record<string, Record<string, number>>;
-        uncategorized: Array<{
-            name: string;
-            weightage: number;
-            description?: string;
-        }>;
-    };
+    timeline?: string;
+}
+
+// Input for RFP description generation
+export interface RfpDescriptionInput {
+    title: string;
+    shortDescription: string;
+    timeline?: string;
+    budget?: number | null;
+    submissionDeadline?: Date | null;
+    categoryId?: number;
+    requirements?: any;
+    evaluationMetrics?: any;
     specialInstructions?: string;
 }
 
 export class RfpGenerationService {
-    private embeddings: GraniteEmbeddingService;
-    private llm: GraniteLLMService;
-    private vectorStore: VectorStore;
-    private readonly MAX_SECTION_TOKENS = 2000;
+    // Define categories for document classification
+    private readonly categories = [
+        "Requirements",
+        "Technical Specifications",
+        "Pricing Details",
+        "Technical Requirements",
+        "Management Requirements",
+        "Evaluation Criteria",
+        "Budget Information",
+        "Timeline",
+        "Submission Guidelines",
+        "Legal Requirements",
+        "Background Information"
+    ];
+
+    private readonly MAX_SECTION_TOKENS = 1000;
     private readonly CHUNK_OVERLAP = 100; // Token overlap between chunks
+    private embedding: GraniteEmbeddingService;
+    private llm: GraniteLLMService;
 
     constructor() {
-        this.embeddings = new GraniteEmbeddingService();
+        this.embedding = new GraniteEmbeddingService();
         this.llm = new GraniteLLMService();
-        this.vectorStore = new VectorStore();
     }
 
-    async generateRfpDescription(input: RfpInput): Promise<string> {
-        const prompt = `
-Create a detailed RFP (Request for Proposal) description based on the following information:
-
-Title: ${input.title}
-Short Description: ${input.shortDescription}
-Budget: $${input.budget.toLocaleString()}
-Timeline: ${input.timeline.startDate} to ${input.timeline.endDate}
-Submission Deadline: ${input.submissionDeadline}
-
-Requirements:
-${input.requirements ? Object.entries(input.requirements.categories).map(([category, reqs]) => 
-    `${category}:\n${reqs.map(r => `- ${r}`).join('\n')}`
-).join('\n\n') + (input.requirements.uncategorized.length ? 
-    `\n\nUncategorized:\n${input.requirements.uncategorized.map(r => `- ${r}`).join('\n')}` : '') 
-: 'Not specified'}
-
-Evaluation Metrics:
-${input.evaluationMetrics ? 
-    Object.entries(input.evaluationMetrics.categories).map(([category, metrics]) => 
-        `${category}:\n${Object.entries(metrics).map(([name, weightage]) => 
-            `- ${name} (${weightage}%)`).join('\n')}`
-    ).join('\n\n') + 
-    (input.evaluationMetrics.uncategorized.length ? 
-        `\n\nUncategorized:\n${input.evaluationMetrics.uncategorized.map(m => 
-            `- ${m.name} (${m.weightage}%)${m.description ? `: ${m.description}` : ''}`).join('\n')}` 
-        : '')
-: 'Not specified'}
-
-Special Instructions:
-${input.specialInstructions || 'None'}
-
-Please generate a comprehensive, well-structured RFP description that:
-1. Clearly outlines the project scope and objectives
-2. Incorporates all requirements and evaluation metrics
-3. Explains the evaluation criteria and their weightage
-4. Includes budget considerations and timeline requirements
-5. Maintains a professional and formal tone
-6. Uses clear and unambiguous language`;
-
-        const systemPrompt = "You are an expert in government procurement with extensive experience in writing RFPs. Focus on clarity, completeness, and compliance with procurement standards.";
-
+    // Extract text from a PDF file
+    private async extractTextFromPdf(filePath: string): Promise<string> {
         try {
-            const response = await this.llm.generateResponse(prompt, systemPrompt, {
-                temperature: 0.3,
-                maxTokens: 2048
-            });
-
-            if (response.error) {
-                throw new Error(`Failed to generate RFP description: ${response.error}`);
-            }
-
-            return response.text;
-        } catch (error) {
-            console.error('Error generating RFP description:', error);
-            throw new Error('Failed to generate RFP description');
+            const dataBuffer = fs.readFileSync(filePath);
+            const pdfData = await pdfParse(dataBuffer);
+            return pdfData.text;
+        } catch (error: any) {
+            console.error(`Error extracting text from PDF ${filePath}:`, error);
+            throw new Error(`Failed to extract text from PDF: ${error.message}`);
         }
     }
 
-    private chunkText(text: string): string[] {
-        // Split text into paragraphs
-        const paragraphs = text.split(/\n\s*\n/);
+    // Read a text file
+    private async readTextFile(filePath: string): Promise<string> {
+        try {
+            const fileContent = await fs.promises.readFile(filePath, 'utf8');
+            return fileContent;
+        } catch (error: any) {
+            console.error(`Error reading text file ${filePath}:`, error);
+            throw new Error(`Failed to read text file: ${error.message}`);
+        }
+    }
+
+    // Read file based on extension
+    private async readFile(filePath: string): Promise<string> {
+        const extension = path.extname(filePath).toLowerCase();
+        
+        if (extension === '.pdf') {
+            return this.extractTextFromPdf(filePath);
+        } else if (['.txt', '.md', '.html', '.htm', '.xml', '.json'].includes(extension)) {
+            return this.readTextFile(filePath);
+        } else {
+            throw new Error(`Unsupported file type: ${extension}`);
+        }
+    }
+
+    // Split text into chunks of approximately equal size
+    private chunkText(text: string, chunkSize: number = 1000): string[] {
         const chunks: string[] = [];
         let currentChunk = '';
-        let currentTokens = 0;
-        const maxTokens = this.MAX_SECTION_TOKENS - this.CHUNK_OVERLAP;
-
+        
+        // Split by paragraphs first
+        const paragraphs = text.split(/\n\s*\n/);
+        
         for (const paragraph of paragraphs) {
-            const tokens = encode(paragraph);
-            
-            if (currentTokens + tokens.length > maxTokens) {
-                if (currentChunk) {
+            // If paragraph is too long, split by sentences
+            if (paragraph.length > chunkSize) {
+                const sentences = paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph];
+                
+                for (const sentence of sentences) {
+                    if (currentChunk.length + sentence.length <= chunkSize) {
+                        currentChunk += sentence;
+                    } else {
+                        if (currentChunk) {
+                            chunks.push(currentChunk.trim());
+                        }
+                        currentChunk = sentence;
+                    }
+                }
+            } else {
+                // If adding this paragraph exceeds chunk size, start a new chunk
+                if (currentChunk.length + paragraph.length > chunkSize) {
                     chunks.push(currentChunk.trim());
-                    // Keep last part for overlap
-                    const overlapText = decode(encode(currentChunk).slice(-this.CHUNK_OVERLAP));
-                    currentChunk = overlapText + '\n\n';
-                    currentTokens = encode(currentChunk).length;
+                    currentChunk = paragraph;
+                } else {
+                    currentChunk += (currentChunk ? '\n\n' : '') + paragraph;
                 }
             }
-            
-            currentChunk += paragraph + '\n\n';
-            currentTokens = encode(currentChunk).length;
         }
-
-        if (currentChunk) {
+        
+        // Add the last chunk if it's not empty
+        if (currentChunk.trim()) {
             chunks.push(currentChunk.trim());
         }
-
+        
         return chunks;
     }
 
-    async extractRfpInfo(documentContent: string): Promise<DynamicRfpInfo> {
+    // Extract information from an RFP document
+    async extractRfpInfo(filePath: string): Promise<DynamicRfpInfo> {
         try {
-            if (!documentContent || documentContent.trim().length === 0) {
-                throw new Error("Empty document content");
-            }
-
-            console.log("Starting RFP information extraction...");
+            console.log('Reading file:', filePath);
+            const text = await this.readFile(filePath);
             
-            // Split document into chunks with overlap
-            const chunks = this.chunkText(documentContent);
-            console.log(`Document split into ${chunks.length} chunks`);
-
-            // Classify chunks
-            const classifiedChunks = await this.embeddings.classifyChunks(chunks);
-            console.log("Chunks classified by category");
-
-            // Create embeddings for classified chunks
-            const embeddings = await this.embeddings.createEmbeddings(
-                classifiedChunks.map(chunk => chunk.content)
-            );
-
-            // Add documents to vector store with metadata
-            for (let i = 0; i < classifiedChunks.length; i++) {
-                await this.vectorStore.addDocument({
-                    id: `chunk-${i}`,
-                    content: classifiedChunks[i].content,
-                    embedding: embeddings[i],
-                    metadata: {
-                        category: classifiedChunks[i].category,
-                        confidence: classifiedChunks[i].confidence
-                    }
-                });
+            if (!text || text.trim().length === 0) {
+                throw new Error('No text content extracted from file');
             }
-
-            const rfpInfo: DynamicRfpInfo = {};
-
-            // Extract basic information first
+            
+            console.log(`Extracted ${text.length} characters from file`);
+            
+            // Split text into manageable chunks
+            const textChunks = this.chunkText(text);
+            console.log(`Split text into ${textChunks.length} chunks`);
+            
+            // Convert string chunks to ChunkMetadata objects
+            const chunks: ChunkMetadata[] = textChunks.map(content => ({ content }));
+            
+            // Classify chunks by category
+            console.log('Classifying document chunks...');
+            const classifiedChunks = await this.embedding.classifyChunks(chunks, this.categories);
+            
+            // Extract RFP information from classified chunks
+            console.log('Extracting RFP information...');
             const basicInfo = await this.extractBasicInfo(classifiedChunks);
-            Object.assign(rfpInfo, basicInfo);
-
-            // Extract requirements dynamically
-            rfpInfo.requirements = await this.extractRequirements(classifiedChunks);
-
-            // Extract evaluation metrics dynamically
-            rfpInfo.evaluationMetrics = await this.extractEvaluationMetrics(classifiedChunks);
-
-            // Clean up vector store
-            await this.vectorStore.clear();
-            console.log("RFP information extraction completed successfully");
-
-            return rfpInfo;
-        } catch (error: unknown) {
-            console.error("RFP information extraction error:", error);
-            await this.vectorStore.clear();
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            throw new Error(`RFP information extraction failed: ${errorMessage}`);
+            const requirements = await this.extractRequirements(classifiedChunks);
+            const evaluationMetrics = await this.extractEvaluationMetrics(classifiedChunks);
+            const specialInstructions = await this.extractSpecialInstructions(classifiedChunks);
+            
+            console.log('RFP information extraction completed successfully');
+            
+            return {
+                ...basicInfo,
+                requirements,
+                evaluationMetrics,
+                specialInstructions
+            } as DynamicRfpInfo;
+        } catch (error: any) {
+            console.error('Error extracting RFP information:', error);
+            throw new Error(`Failed to extract RFP information: ${error.message}`);
         }
     }
 
@@ -501,6 +481,116 @@ IMPORTANT: Your response must be valid JSON.`;
             };
         }
     }
+
+    // Extract special instructions from classified chunks
+    private async extractSpecialInstructions(chunks: ChunkMetadata[]): Promise<string | null> {
+        // Filter chunks that might contain special instructions
+        const relevantCategories = [
+            "Submission Guidelines",
+            "Legal Requirements",
+            "Special Instructions"
+        ];
+        
+        const relevantChunks = chunks.filter(chunk => 
+            chunk.category && relevantCategories.includes(chunk.category)
+        );
+        
+        // Limit to 3 most relevant chunks to avoid token limits
+        const limitedChunks = relevantChunks.slice(0, 3);
+        
+        // If no relevant chunks found, return null
+        if (limitedChunks.length === 0) {
+            return null;
+        }
+
+        const instructionsPrompt = `
+Analyze these document sections to extract any special instructions or guidelines for RFP submission.
+
+Relevant sections:
+${limitedChunks.map(chunk => chunk.content).join('\n\n')}
+
+Extract any special instructions, submission guidelines, or legal requirements that bidders need to follow.
+Format your response as a clear, concise list of instructions. If no special instructions are found, respond with "No special instructions provided."
+`;
+
+        try {
+            const response = await this.llm.generateResponse(
+                instructionsPrompt,
+                "You are an expert in analyzing RFP documents. Extract special instructions and submission guidelines in a clear, concise format.",
+                { temperature: 0.3 }
+            );
+
+            if (response.error) {
+                console.warn(`Failed to extract special instructions: ${response.error}`);
+                return null;
+            }
+
+            const instructions = response.text.trim();
+            
+            // If no instructions found or default response
+            if (instructions === "No special instructions provided." || instructions.length < 10) {
+                return null;
+            }
+            
+            return instructions;
+        } catch (error) {
+            console.warn('Failed to extract special instructions:', error);
+            return null;
+        }
+    }
+
+    // Generate a comprehensive RFP description based on provided information
+    public async generateRfpDescription(input: RfpDescriptionInput): Promise<string> {
+        try {
+            const prompt = `
+            Generate a comprehensive and professional Request for Proposal (RFP) description based on the following information:
+            
+            Title: ${input.title}
+            Short Description: ${input.shortDescription}
+            ${input.timeline ? `Timeline: ${input.timeline}` : ''}
+            ${input.budget ? `Budget: $${input.budget}` : ''}
+            ${input.submissionDeadline ? `Submission Deadline: ${input.submissionDeadline.toISOString().split('T')[0]}` : ''}
+            
+            Requirements:
+            ${JSON.stringify(input.requirements || {})}
+            
+            Evaluation Metrics:
+            ${JSON.stringify(input.evaluationMetrics || {})}
+            
+            ${input.specialInstructions ? `Special Instructions: ${input.specialInstructions}` : ''}
+            
+            The RFP description should include:
+            1. A detailed introduction and background
+            2. Clear explanation of the project scope
+            3. Detailed requirements and specifications
+            4. Timeline and milestones
+            5. Budget constraints and payment terms
+            6. Evaluation criteria and selection process
+            7. Submission guidelines and contact information
+            8. Any special terms or conditions
+            
+            Format the response as a well-structured, professional document with appropriate sections and headings.
+            `;
+            
+            const systemPrompt = "You are an expert in creating professional Request for Proposal documents. Generate a comprehensive RFP based on the provided information.";
+            
+            const response = await this.llm.generateResponse(
+                prompt,
+                systemPrompt,
+                {
+                    temperature: 0.7,
+                    maxTokens: 2000
+                }
+            );
+            
+            return response.text;
+        } catch (error: any) {
+            console.error('Error generating RFP description:', error);
+            // Return a basic description if generation fails
+            return `Request for Proposal: ${input.title}\n\n${input.shortDescription}\n\nPlease refer to the requirements and evaluation metrics for more details.`;
+        }
+    }
 }
 
-export const rfpGenerationService = new RfpGenerationService(); 
+// Create and export a singleton instance
+export const rfpGenerationService = new RfpGenerationService();

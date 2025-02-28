@@ -2,15 +2,18 @@ import { HfInference, FeatureExtractionOutput } from '@huggingface/inference';
 import { graniteConfig } from './config';
 import { chunk } from 'lodash';
 
+// Define ChunkMetadata interface locally to avoid circular dependency
 export interface ChunkMetadata {
     content: string;
-    category?: string;
-    confidence?: number;
+    category?: string | null;
+    similarity?: number;
 }
 
 export class GraniteEmbeddingService {
     private hf: HfInference;
     private readonly config = graniteConfig.embeddingModel;
+    private readonly MAX_RETRIES = 3;
+    private readonly INITIAL_RETRY_DELAY = 1000; // 1 second
 
     constructor() {
         if (!graniteConfig.huggingface.apiKey) {
@@ -26,70 +29,86 @@ export class GraniteEmbeddingService {
             .slice(0, this.config.maxInputLength);
     }
 
-    private ensureNumberArray(response: FeatureExtractionOutput): number[] {
-        if (Array.isArray(response)) {
-            if (response.length === 0) {
-                throw new Error('Empty embedding response');
-            }
-            let embedding: number[];
-            if (Array.isArray(response[0])) {
-                // If it's a 2D array, return the first row
-                embedding = response[0] as number[];
-            } else {
-                embedding = response as number[];
-            }
-            
-            // Instead of validating dimensions, normalize them
-            return this.normalizeDimensions(embedding);
-        }
-        throw new Error('Unexpected embedding format');
+    // Helper method to sleep
+    private async sleep(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    // New function to normalize dimensions
-    private normalizeDimensions(embedding: number[]): number[] {
-        const targetDim = this.config.outputDimensions;
+    // Helper to ensure we have a number array from the API response
+    private ensureNumberArray(output: FeatureExtractionOutput): number[] {
+        if (Array.isArray(output)) {
+            if (output.length > 0) {
+                if (Array.isArray(output[0])) {
+                    // Handle case where output is number[][]
+                    return output[0] as number[];
+                }
+                // Handle case where output is number[]
+                return output as number[];
+            }
+            return [];
+        } else if (typeof output === 'number') {
+            // Handle case where output is a single number
+            return [output];
+        }
         
-        // If dimensions match, return as is
-        if (embedding.length === targetDim) {
+        console.error('Unexpected embedding format:', output);
+        return Array(this.config.outputDimensions).fill(0);
+    }
+
+    // Normalize embedding dimensions to match expected output
+    private normalizeDimensions(embedding: number[], targetDimension: number): number[] {
+        if (embedding.length === targetDimension) {
             return embedding;
         }
         
-        console.log(`Normalizing embedding from ${embedding.length} to ${targetDim} dimensions`);
+        console.log(`Normalizing embedding from ${embedding.length} to ${targetDimension} dimensions`);
         
-        // If dimensions are smaller, pad with zeros
-        if (embedding.length < targetDim) {
-            return [...embedding, ...Array(targetDim - embedding.length).fill(0)];
+        if (embedding.length > targetDimension) {
+            // Truncate if longer than expected
+            return embedding.slice(0, targetDimension);
+        } else {
+            // Pad with zeros if shorter than expected
+            return [...embedding, ...Array(targetDimension - embedding.length).fill(0)];
         }
-        
-        // If dimensions are larger, truncate
-        return embedding.slice(0, targetDim);
     }
 
-    async createEmbedding(text: string): Promise<number[]> {
+    private async createEmbeddingWithRetry(text: string, retryCount = 0): Promise<number[]> {
         try {
-            const normalizedText = this.normalizeText(text);
-            console.log(`Creating embedding for text (length: ${normalizedText.length})`);
+            // Ensure text is not empty
+            if (!text || text.trim().length === 0) {
+                console.warn('Empty text provided for embedding, returning zero vector');
+                return Array(this.config.outputDimensions).fill(0);
+            }
             
             const response = await this.hf.featureExtraction({
                 model: this.config.name,
-                inputs: normalizedText
+                inputs: text
             });
             
-            console.log('Raw embedding response type:', Array.isArray(response) ? 'array' : typeof response);
-            if (Array.isArray(response)) {
-                console.log('Response array length:', response.length);
-                if (response.length > 0) {
-                    console.log('First element type:', Array.isArray(response[0]) ? 'array' : typeof response[0]);
-                }
+            // Convert response to number array and normalize dimensions
+            const embedding = this.ensureNumberArray(response);
+            return this.normalizeDimensions(embedding, this.config.outputDimensions);
+        } catch (error) {
+            if (retryCount < this.MAX_RETRIES) {
+                // Calculate exponential backoff delay
+                const delay = this.INITIAL_RETRY_DELAY * Math.pow(2, retryCount);
+                console.warn(`Embedding API call failed, retrying in ${delay}ms (attempt ${retryCount + 1}/${this.MAX_RETRIES})`, error);
+                
+                // Wait before retrying
+                await this.sleep(delay);
+                
+                // Retry with incremented counter
+                return this.createEmbeddingWithRetry(text, retryCount + 1);
             }
             
-            const embedding = this.ensureNumberArray(response);
-            console.log(`Successfully created embedding with dimensions: ${embedding.length}`);
-            return embedding;
-        } catch (error) {
-            console.error('Error creating embedding:', error);
-            throw new Error('Failed to create embedding');
+            // If we've exhausted all retries, log and return zero vector
+            console.error('Error creating embedding after all retries:', error);
+            return Array(this.config.outputDimensions).fill(0);
         }
+    }
+
+    async createEmbedding(text: string): Promise<number[]> {
+        return this.createEmbeddingWithRetry(text);
     }
 
     async createEmbeddings(texts: string[]): Promise<number[][]> {
@@ -118,96 +137,88 @@ export class GraniteEmbeddingService {
         }
     }
 
-    async classifyChunks(chunks: string[]): Promise<ChunkMetadata[]> {
-        const categories = [
-            "Requirements",
-            "Technical Specifications",
-            "Pricing Details",
-            "Technical Requirements",
-            "Management Requirements",
-            "Evaluation Criteria",
-            "Budget Information",
-            "Timeline",
-            "Submission Guidelines",
-            "Legal Requirements",
-            "Background Information"
-        ];
-
+    private calculateSimilarity(embedding1: number[], embedding2: number[]): number {
         try {
-            const results: ChunkMetadata[] = [];
-
-            for (const content of chunks) {
-                try {
-                    // Using feature extraction to create embeddings for both content and categories
-                    const contentEmbedding = await this.createEmbedding(content);
-                    
-                    // Create category embeddings with error handling for each category
-                    const categoryEmbeddings: number[][] = [];
-                    for (const category of categories) {
-                        try {
-                            const embedding = await this.createEmbedding(category);
-                            categoryEmbeddings.push(embedding);
-                        } catch (error) {
-                            console.error(`Error creating embedding for category "${category}":`, error);
-                            // Add a zero vector as fallback
-                            categoryEmbeddings.push(Array(this.config.outputDimensions).fill(0));
-                        }
-                    }
-
-                    // Calculate similarities
-                    const similarities = categoryEmbeddings.map(categoryEmbedding => 
-                        this.calculateSimilarity(contentEmbedding, categoryEmbedding)
-                    );
-
-                    // Find the best matching category
-                    const maxIndex = similarities.indexOf(Math.max(...similarities));
-                    const topCategory = categories[maxIndex];
-                    const topScore = similarities[maxIndex];
-
-                    results.push({
-                        content,
-                        category: topScore > 0.5 ? topCategory : undefined,
-                        confidence: topScore
-                    });
-                } catch (error) {
-                    console.error(`Error processing chunk: ${error}`);
-                    // Add the chunk without classification
-                    results.push({
-                        content,
-                        category: undefined,
-                        confidence: 0
-                    });
-                }
-            }
-
-            return results;
-        } catch (error) {
-            console.error('Error classifying chunks:', error);
-            throw new Error('Failed to classify document chunks');
-        }
-    }
-
-    // Method to calculate cosine similarity between two embeddings
-    calculateSimilarity(embedding1: number[], embedding2: number[]): number {
-        if (embedding1.length !== embedding2.length) {
-            console.warn(`Embedding dimensions don't match: ${embedding1.length} vs ${embedding2.length}. Normalizing...`);
             // Normalize dimensions if they don't match
-            if (embedding1.length > embedding2.length) {
-                embedding2 = this.normalizeDimensions(embedding2);
-            } else {
-                embedding1 = this.normalizeDimensions(embedding1);
+            if (embedding1.length !== embedding2.length) {
+                const targetDim = Math.max(embedding1.length, embedding2.length);
+                embedding1 = this.normalizeDimensions(embedding1, targetDim);
+                embedding2 = this.normalizeDimensions(embedding2, targetDim);
             }
-        }
-
-        const dotProduct = embedding1.reduce((sum, val, i) => sum + val * embedding2[i], 0);
-        const norm1 = Math.sqrt(embedding1.reduce((sum, val) => sum + val * val, 0));
-        const norm2 = Math.sqrt(embedding2.reduce((sum, val) => sum + val * val, 0));
-
-        // Avoid division by zero
-        if (norm1 === 0 || norm2 === 0) {
+            
+            // Calculate dot product
+            const dotProduct = embedding1.reduce((sum, val, i) => sum + val * embedding2[i], 0);
+            
+            // Calculate magnitudes
+            const mag1 = Math.sqrt(embedding1.reduce((sum, val) => sum + val * val, 0));
+            const mag2 = Math.sqrt(embedding2.reduce((sum, val) => sum + val * val, 0));
+            
+            // Avoid division by zero
+            if (mag1 === 0 || mag2 === 0) {
+                return 0;
+            }
+            
+            // Calculate cosine similarity
+            return dotProduct / (mag1 * mag2);
+        } catch (error) {
+            console.error('Error calculating similarity:', error);
             return 0;
         }
-
-        return dotProduct / (norm1 * norm2);
     }
-} 
+
+    async classifyChunks(chunks: ChunkMetadata[], categories: string[]): Promise<ChunkMetadata[]> {
+        // Create embeddings for each category
+        const categoryEmbeddings: { [key: string]: number[] } = {};
+        
+        // Process each category individually to prevent one failure from stopping all
+        for (const category of categories) {
+            try {
+                categoryEmbeddings[category] = await this.createEmbedding(category);
+            } catch (error) {
+                console.error(`Failed to create embedding for category "${category}":`, error);
+                categoryEmbeddings[category] = Array(this.config.outputDimensions).fill(0);
+            }
+        }
+        
+        // Process each chunk individually
+        const classifiedChunks: ChunkMetadata[] = [];
+        
+        for (const chunk of chunks) {
+            try {
+                // Skip empty chunks
+                if (!chunk.content || chunk.content.trim().length === 0) {
+                    classifiedChunks.push({...chunk, category: null, similarity: 0});
+                    continue;
+                }
+                
+                // Create embedding for chunk content
+                const chunkEmbedding = await this.createEmbedding(chunk.content);
+                
+                // Find the most similar category
+                let bestCategory = null;
+                let bestSimilarity = -1;
+                
+                for (const category of categories) {
+                    const similarity = this.calculateSimilarity(chunkEmbedding, categoryEmbeddings[category]);
+                    
+                    if (similarity > bestSimilarity) {
+                        bestSimilarity = similarity;
+                        bestCategory = category;
+                    }
+                }
+                
+                // Only assign category if similarity is above threshold
+                if (bestSimilarity >= 0.3) {
+                    classifiedChunks.push({...chunk, category: bestCategory, similarity: bestSimilarity});
+                } else {
+                    classifiedChunks.push({...chunk, category: null, similarity: bestSimilarity});
+                }
+            } catch (error) {
+                console.error(`Failed to classify chunk:`, error);
+                classifiedChunks.push({...chunk, category: null, similarity: 0});
+            }
+        }
+        
+        return classifiedChunks;
+    }
+}
